@@ -1,0 +1,83 @@
+/* Configuration Manager scoped styles. */
+.crm-configmanager-block .civicfg-tabs {margin: 0 0 1rem; display: flex; gap: .35rem; flex-wrap: wrap;}
+.crm-configmanager-block .civicfg-tab {padding: .45rem .75rem; border: 1px solid #b8c4d0; background: var(--crm-c-background2, #f7f8fa); border-radius: 3px; text-decoration: none;}
+.crm-configmanager-block .civicfg-tab.active {background: var(--crm-c-primary, #3f4d63); color: #fff; border-color: var(--crm-c-primary, #3f4d63);}
+.crm-configmanager-block .civicfg-help {margin: .5rem 0 1rem; max-width: 80rem;}
+.crm-configmanager-block .civicfg-cards {display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem; margin: 1rem 0;}
+.crm-configmanager-block .civicfg-card {border: 1px solid #d6dce2; border-radius: 4px; background: var(--crm-c-page-background, #fff); padding: .8rem; min-height: 4.5rem;}
+.crm-configmanager-block .civicfg-card-label {font-size: .85rem; color: #5f6b7a; margin-bottom: .35rem;}
+.crm-configmanager-block .civicfg-card-value {font-size: 1.15rem; font-weight: 600;}
+.crm-configmanager-block .civicfg-path {font-family: Menlo, Consolas, monospace; word-break: break-all; font-size: .9em;}
+.crm-configmanager-block .civicfg-actions {display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0; align-items: center;}
+.crm-configmanager-block .civicfg-actions .button {margin-right: 0;}
+.crm-configmanager-block .civicfg-badge {display: inline-block; padding: .15rem .45rem; border-radius: 3px; background: #e8edf3;}
+.crm-configmanager-block .civicfg-badge.good {background: #dff0d8; color: #245724;}
+.crm-configmanager-block .civicfg-badge.bad {background: #f2dede; color: #842029;}
+.crm-configmanager-block .civicfg-badge.warn {background: #fcf8e3; color: #664d03;}
+.crm-configmanager-block .civicfg-filter {border: 1px solid #d7dce2; background: var(--crm-c-background2, #fbfcfd); padding: 0; margin: .75rem 0 1rem; border-radius: 4px;}
+.crm-configmanager-block .civicfg-filter summary {cursor: pointer; padding: .75rem .9rem; font-weight: 600;}
+.crm-configmanager-block .civicfg-filter-body {border-top: 1px solid #d7dce2; padding: .75rem .9rem;}
+.crm-configmanager-block .civicfg-checkbox-grid {display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: .35rem .9rem; margin: .6rem 0 .75rem;}
+.crm-configmanager-block .civicfg-checkbox-grid label {display: flex; gap: .35rem; justify-content: flex-start; margin: 0;}
+.crm-configmanager-block .civicfg-form-grid {display: grid; grid-template-columns: minmax(220px, 360px) minmax(220px, 1fr); gap: .75rem 1rem; max-width: 980px; align-items: start;}
+.crm-configmanager-block .civicfg-form-grid label {font-weight: 600;}
+.crm-configmanager-block .civicfg-form-grid input[type=text], .crm-configmanager-block .civicfg-form-grid select {width: 100%; max-width: 100%;}
+.crm-configmanager-block .civicfg-result {white-space: pre-wrap; max-height: 420px; overflow: auto;}
+.crm-configmanager-block textarea.crm-form-textarea, .crm-configmanager-block .civicfg-yaml-preview {width: 100%; max-width: 100%; min-height: 240px; font-family: Menlo, Consolas, monospace; font-size: 13px; line-height: 1.4;}
+.crm-configmanager-block .civicfg-section {margin-top: 1rem;}
+.crm-configmanager-block .civicfg-list {max-height: 360px; overflow: auto; border: 1px solid #d7dce2; padding: .5rem; background: var(--crm-c-page-background, #fff);}
+.crm-configmanager-block .civicfg-change-list {display: grid; gap: .65rem; margin: .75rem 0;}
+.crm-configmanager-block .civicfg-change-card {border: 1px solid #d7dce2; border-radius: 4px; background: var(--crm-c-page-background, #fff); padding: .75rem;}
+.crm-configmanager-block .civicfg-change-card h4 {margin: 0 0 .35rem; font-size: 1rem; line-height: 1.3;}
+.crm-configmanager-block .civicfg-file-code {font-size: .95em; font-weight: 600; white-space: normal; word-break: break-word;}
+.crm-configmanager-block .civicfg-change-meta {display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: .35rem 0;}
+.crm-configmanager-block .civicfg-change-fields {margin: .5rem 0 0 1rem;}
+.crm-configmanager-block .civicfg-change-fields li {margin: .2rem 0;}
+.crm-configmanager-block .civicfg-modal, .crm-configmanager-block .civicfg-modal[hidden] {display:none !important; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; overflow:auto; background:rgba(0,0,0,.55);}
+.crm-configmanager-block .civicfg-modal.is-open {display:block !important;}
+.crm-configmanager-block .civicfg-modal-box {background:#fff; margin:4rem auto; width:min(1080px, 92vw); max-height:82vh; overflow:auto; border-radius:4px; box-shadow:0 8px 30px rgba(0,0,0,.35);}
+.crm-configmanager-block .civicfg-modal-header {display:flex; justify-content:space-between; gap:1rem; align-items:center; padding:1rem; border-bottom:1px solid #dde3ea; background:#1f2328; color:#fff;}
+.crm-configmanager-block .civicfg-modal-body {padding:1rem;}
+.crm-configmanager-block .civicfg-close {font-size:1.5rem; cursor:pointer; color:#fff; background:transparent; border:0;}
+.crm-configmanager-block .civicfg-diff {margin:0; padding:.75rem; max-height:42vh; overflow:auto; background:#1f2328; color:#f0f3f6; font-family:Menlo, Consolas, monospace; font-size:12px; line-height:1.45; white-space:pre;}
+.crm-configmanager-block .civicfg-diff-table {width:100%; border-collapse:collapse; margin:.75rem 0 1rem;}
+.crm-configmanager-block .civicfg-diff-table th {background:var(--crm-c-background2, #f3f6f8); text-align:left; padding:.45rem .55rem; border-bottom:1px solid #d7dce2;}
+.crm-configmanager-block .civicfg-diff-table td {vertical-align:top; padding:.45rem .55rem; border-bottom:1px solid #e5e9ee;}
+.crm-configmanager-block .civicfg-diff-old {background:#fff8c5;}
+.crm-configmanager-block .civicfg-diff-new {background:#dafbe1;}
+.crm-configmanager-block .civicfg-diff-value {white-space:pre-wrap; font-family:Menlo, Consolas, monospace; font-size:12px;}
+.crm-configmanager-block .civicfg-muted {color:#5f6b7a;}
+.crm-configmanager-block .civicfg-mini-grid {display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:.5rem; margin:.5rem 0;}
+.crm-configmanager-block .civicfg-mini {border:1px solid #e2e6ea; padding:.5rem; border-radius:3px; background:var(--crm-c-background2, #fbfcfd);}
+.crm-configmanager-block .civicfg-subtabs {display: flex; gap: .5rem; border-bottom: 1px solid #d7dce2; margin: 1rem 0;}
+.crm-configmanager-block .civicfg-subtab {padding: .55rem .9rem; border: 1px solid transparent; border-bottom: 0; text-decoration: none;}
+.crm-configmanager-block .civicfg-subtab.active {font-weight: 600; border-color: #d7dce2; background: #fff;}
+.crm-configmanager-block .civicfg-inline-note {margin:.4rem 0 .8rem; color:#5f6b7a;}
+.crm-configmanager-block .civicfg-single-export-meta {margin:.75rem 0 .5rem;}
+.crm-configmanager-block .civicfg-single-export-meta strong {display:block; margin-bottom:.25rem;}
+.crm-configmanager-block .civicfg-loading {opacity:.75;}
+.crm-configmanager-block .civicfg-raw-result {margin-top: 1rem;}
+.crm-configmanager-block div[class*="error"],.crm-configmanager-block div[class*="status"]{margin-top: 0.5em;}
+@media (max-width: 720px) {.crm-configmanager-block .civicfg-form-grid {grid-template-columns: 1fr;}}
+.crm-configmanager-block .civicfg-panel {border:1px solid #d7dce2; background:var(--crm-c-page-background, #fff); border-radius:4px; margin:1rem 0; padding:0;}
+.crm-configmanager-block .civicfg-panel summary {cursor:pointer; padding:.75rem .9rem; font-weight:600; background:var(--crm-c-background2, #f3f6f8);}
+.crm-configmanager-block .civicfg-panel-body {padding:.85rem .9rem; border-top:1px solid #d7dce2;}
+.crm-configmanager-block .civicfg-summary-panel,
+.crm-configmanager-block .civicfg-files-panel {margin-top: 1rem;}
+.crm-configmanager-block .civicfg-type-lines,
+.crm-configmanager-block .civicfg-file-lines {display: grid; gap: .45rem;}
+.crm-configmanager-block .civicfg-type-line,
+.crm-configmanager-block .civicfg-file-line {display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; border: 1px solid #d7dce2; border-radius: 4px; background: var(--crm-c-page-background, #fff); padding: .45rem .55rem;}
+.crm-configmanager-block .civicfg-type-line code,
+.crm-configmanager-block .civicfg-file-line code {font-size: .95em;}
+.crm-configmanager-block .civicfg-file-line .civicfg-file-code {flex: 1 1 280px; min-width: 220px;}
+.crm-configmanager-block .civicfg-field-preview {display: inline-flex; gap: .35rem; flex-wrap: wrap; color: #5f6b7a;}
+.crm-configmanager-block .civicfg-field-preview span:not(:last-child)::after {content: ',';}
+.crm-configmanager-block .civicfg-line-button {margin-left: auto;}
+@media (max-width: 720px) {.crm-configmanager-block .civicfg-line-button {margin-left: 0;}}
+.crm-configmanager-block .civicfg-settings-form {width: 100%; max-width: none;}
+.crm-configmanager-block .civicfg-settings-form table.form-layout-compressed {width: 100%; max-width: none;}
+.crm-configmanager-block .civicfg-settings-form table.form-layout-compressed td {vertical-align: top;}
+.crm-configmanager-block .civicfg-settings-form table.form-layout-compressed td.label {width: 180px; min-width: 180px;}
+.crm-configmanager-block .civicfg-settings-form input.crm-form-text {width: min(760px, 100%); max-width: 100%;}
+.crm-configmanager-block .civicfg-settings-form textarea.crm-form-textarea {width: 100%; max-width: 100%; min-height: 300px;}

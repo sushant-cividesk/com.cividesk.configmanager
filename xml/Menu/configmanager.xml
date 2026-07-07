@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<menu>
+  <item>
+    <path>civicrm/admin/config-manager</path>
+    <page_callback>CRM_Configmanager_Page_Main</page_callback>
+    <title>Configuration Manager</title>
+    <access_arguments>access CiviCRM configuration manager</access_arguments>
+  </item>
+</menu>

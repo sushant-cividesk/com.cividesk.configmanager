@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<extension key="com.cividesk.configmanager" type="module">
+  <file>configmanager</file>
+  <name>Configuration Manager</name>
+  <description>CiviCRM configuration management with YAML export/import, UI and CLI workflows.</description>
+  <license>AGPL-3.0</license>
+  <maintainer>
+    <author>Sushant Paste</author>
+    <email>sushant@cividesk.com</email>
+  </maintainer>
+  <releaseDate>2026-07-06</releaseDate>
+  <version>0.1.0-alpha24-core</version>
+  <develStage>alpha</develStage>
+  <compatibility>
+    <ver>5.0</ver>
+    <ver>6.0</ver>
+  </compatibility>
+  <comments>Alpha core build: sync-directory resolution improved, legacy labels restored, settings layout widened, and sync-directory guidance clarified.</comments>
+</extension>

@@ -1,0 +1,101 @@
+  {if $op eq 'import'}
+    <h3>{ts}Import From Sync Directory{/ts}</h3>
+    <p>{ts}Review YAML changes that can be applied to CiviCRM. Import follows YAML as the source of truth for supported create/update handlers and does not delete records in this alpha.{/ts}</p>
+
+    {if $importPlan|@count eq 0}
+      <div class="messages status no-popup">{ts}Nothing to import from the sync directory. If changes are listed as In CiviCRM on the Synchronize tab, use Export to write them to YAML first.{/ts}</div>
+    {else}
+      <details class="civicfg-panel" open="open">
+        <summary>{ts}Import Preview{/ts}</summary>
+        <div class="civicfg-panel-body">
+          <div class="civicfg-actions">
+            {if $canImport and $importApplyTypes|@count gt 0}
+              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}">
+                <input type="hidden" name="_action" value="import_apply" />
+                {foreach from=$importApplyTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
+                <button type="submit" class="button"><span>{ts}Import{/ts}</span></button>
+              </form>
+            {/if}
+            <a class="button" href="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}"><span>{ts}Back{/ts}</span></a>
+          </div>
+
+          <div class="civicfg-change-list">
+            {foreach from=$importPlan item=item}
+              <div class="civicfg-change-card">
+                <h4><code class="civicfg-file-code">{$item.path|escape}</code></h4>
+                <div class="civicfg-change-meta">
+                  <span class="civicfg-badge {if $item.importable}good{else}warn{/if}">{if $item.importable}{$item.action|escape}{else}{ts}Not Ready{/ts}{/if}</span>
+                  <span>{$item.change_count|escape} {ts}Field Change(s){/ts}</span>
+                  <span class="civicfg-muted">{$item.type_label|escape}</span>
+                </div>
+                {if $item.note}<div class="messages warning no-popup">{$item.note|escape}</div>{/if}
+                {if $item.rows}
+                  <div class="civicfg-mini-grid">
+                    {foreach from=$item.rows item=row name=importrowloop}
+                      {if $smarty.foreach.importrowloop.index lt 6}
+                        <div class="civicfg-mini">
+                          <strong>{$row.label|escape}</strong><br />
+                          <span class="civicfg-muted">{ts}Current CiviCRM{/ts}:</span> <span class="civicfg-diff-value">{$row.new|escape}</span><br />
+                          <span class="civicfg-muted">{ts}YAML{/ts}:</span> <span class="civicfg-diff-value">{$row.old|escape}</span>
+                        </div>
+                      {/if}
+                    {/foreach}
+                  </div>
+                {/if}
+              </div>
+            {/foreach}
+          </div>
+
+          <div class="civicfg-actions">
+            {if $canImport and $importApplyTypes|@count gt 0}
+              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}">
+                <input type="hidden" name="_action" value="import_apply" />
+                {foreach from=$importApplyTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
+                <button type="submit" class="button"><span>{ts}Import{/ts}</span></button>
+              </form>
+            {/if}
+            <a class="button" href="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}"><span>{ts}Back{/ts}</span></a>
+          </div>
+        </div>
+      </details>
+    {/if}
+
+    {if $canImport}
+    <details class="civicfg-panel">
+      <summary>{ts}Upload Single YAML{/ts}</summary>
+      <div class="civicfg-panel-body">
+        <p class="description">{ts}Upload one YAML file into the sync directory. After upload, review Synchronize before importing to CiviCRM.{/ts}</p>
+        <form method="post" enctype="multipart/form-data" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=import'}">
+          <input type="hidden" name="_action" value="import_single_yaml" />
+          <div class="civicfg-form-grid">
+            <label for="single_type">{ts}Type{/ts}</label>
+            <select id="single_type" name="single_type">
+              {foreach from=$allTypes item=row}<option value="{$row.type|escape}">{$row.label|escape}</option>{/foreach}
+            </select>
+            <label for="single_filename">{ts}Target Filename{/ts}</label>
+            <input type="text" id="single_filename" name="single_filename" placeholder="activity_type.yml" />
+            <span></span><p class="description">{ts}Use a filename relative to the selected type directory. Example: activity_type.yml or groups/example.yml.{/ts}</p>
+            <label for="single_yaml">{ts}YAML File{/ts}</label>
+            <input type="file" id="single_yaml" name="single_yaml" accept=".yml,.yaml,text/yaml,text/plain" />
+          </div>
+          <div class="civicfg-actions"><button type="submit" class="button"><span>{ts}Upload{/ts}</span></button></div>
+        </form>
+      </div>
+    </details>
+
+    <details class="civicfg-panel">
+      <summary>{ts}Upload ZIP Archive{/ts}</summary>
+      <div class="civicfg-panel-body">
+        <p class="description">{ts}Upload a full config archive. YAML files are staged into the sync directory; no CiviCRM records are changed until you review and import.{/ts}</p>
+        <form method="post" enctype="multipart/form-data" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=import'}">
+          <input type="hidden" name="_action" value="import_zip_archive" />
+          <div class="civicfg-form-grid">
+            <label for="zip_archive">{ts}ZIP Archive{/ts}</label>
+            <input type="file" id="zip_archive" name="zip_archive" accept=".zip,application/zip" />
+          </div>
+          <div class="civicfg-actions"><button type="submit" class="button"><span>{ts}Upload{/ts}</span></button></div>
+        </form>
+      </div>
+    </details>
+    {/if}
+  {/if}
