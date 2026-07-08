@@ -40,7 +40,7 @@ The custom `cv civicfg:*` wrapper is intentionally paused. See `../README.md#api
 - Diff calculation.
 - YAML validation.
 - Import preview and import apply.
-- Manifest writing.
+- Manifest writing with version metadata read from `info.xml`.
 - System-status health summary.
 
 The service resolves relative sync directories from the CMS/project root where possible. The legacy value `../civicrm-config` is normalized to `civicrm-config`.
@@ -90,6 +90,23 @@ Each handler is responsible for one config type and implements:
 
 `AbstractHandler` provides common diff and validation defaults. Import defaults to `not_implemented` unless a handler overrides it.
 
+## YAML file strategy
+
+Handlers can export either collection files or split item files. Collection files remain suitable for stable low-volume configuration. Split item files are used for high-churn or large records so Git diffs stay reviewable.
+
+Current split-file handlers:
+
+- Scheduled Jobs
+- SearchKit Saved Searches
+- SearchKit Displays
+- FormBuilder Afforms
+
+Split files contain one record under `item`, an `identity_field`, and dependency metadata where detectable. The generic API4 handler continues to accept older collection files for import, but new exports use the split-file layout for the handlers listed above.
+
+## Version metadata
+
+`Civi/ConfigManager/Version.php` reads the extension version from `info.xml`. Export manifests use this runtime version, so generated YAML metadata is not hard-coded in service classes.
+
 ## Import model
 
 Imports are conservative in the current alpha series.
@@ -102,7 +119,7 @@ Imports are conservative in the current alpha series.
 
 ## Storage layer
 
-`Civi/ConfigManager/Storage/YamlFileStorage.php` reads and writes YAML under the configured sync directory.
+`Civi/ConfigManager/Storage/YamlFileStorage.php` reads and writes YAML under the configured sync directory. It supports nested directories so handlers can store either collection files or one file per config item.
 
 `Civi/ConfigManager/Util/SimpleYaml.php` uses available YAML support when possible and includes a simple fallback for the extension's YAML structures.
 

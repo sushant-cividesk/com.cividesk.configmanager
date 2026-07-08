@@ -53,6 +53,21 @@ Handlers should run in this order unless a new dependency requires adjustment:
 15. FormBuilder Afforms
 16. Contact Summary Layouts, planned
 
+## File layout decisions
+
+Use split item files for config types that are large, commonly edited, or dependency-sensitive:
+
+- Scheduled Jobs
+- SearchKit Saved Searches
+- SearchKit Displays
+- FormBuilder Afforms
+
+Keep collection files for smaller stable types unless diffs become difficult to review. When adding a new split-file handler, include dependency metadata in each item file and document the dependency order here instead of duplicating release notes.
+
+## Version maintenance
+
+Update the release version in `info.xml`. Runtime export metadata reads that version through `Civi\ConfigManager\Version`, so service code should not hard-code the alpha version. Update `CHANGELOG.md` and current-behavior docs when behavior changes.
+
 ## Current supported import areas
 
 Create/update import is currently implemented for:
@@ -75,7 +90,7 @@ Import remains non-destructive. Extra CiviCRM records are not removed when missi
 - Complete Custom Groups and Fields import.
 - Complete Message Templates import.
 - Complete CiviCRM Settings Allowlist import.
-- Add dependency graph validation before import.
+- Build stronger dependency graph validation before import. Current split files include dependency metadata where detectable, but imports do not yet block on missing dependencies globally.
 - Add round-trip tests for each handler.
 - Add compatibility smoke tests for Drupal, WordPress, and Standalone.
 - Add clearer per-handler import readiness reporting.

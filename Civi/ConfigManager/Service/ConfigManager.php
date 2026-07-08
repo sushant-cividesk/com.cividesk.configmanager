@@ -2,6 +2,7 @@
 namespace Civi\ConfigManager\Service;
 
 use Civi\ConfigManager\Storage\YamlFileStorage;
+use Civi\ConfigManager\Version;
 
 class ConfigManager {
   private HandlerRegistry $registry;
@@ -384,9 +385,9 @@ class ConfigManager {
   private function getManifestData(): array {
     return [
       'schema_version' => 1,
-      'extension' => 'com.cividesk.configmanager',
+      'extension' => Version::EXTENSION_KEY,
       'format' => 'yaml',
-      'exported_with' => '0.1.0-alpha26-core',
+      'exported_with' => Version::get(),
       'civicrm_min_version' => '5.0',
       'created_by' => 'Configuration Manager',
     ];

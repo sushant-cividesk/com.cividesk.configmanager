@@ -2,6 +2,15 @@
 
 All notable ZIP/test builds for `com.cividesk.configmanager` are tracked here. Other docs describe current behavior only and should reference this file instead of repeating release notes.
 
+## 0.1.0-alpha27-core
+
+- Added runtime version lookup from `info.xml` and removed the hard-coded `exported_with` version from the export manifest service.
+- Split high-churn config exports into one YAML file per item for Scheduled Jobs, SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms.
+- Added dependency metadata to split item files where dependencies can be detected, including SearchDisplay to SavedSearch, FormBuilder layout SearchKit references, and Scheduled Job API entity usage.
+- Kept backward-compatible import support for older collection files for the split handlers.
+- Clarified extension status behavior: export captures current CiviCRM extension status, import can install/enable/disable when code exists, uninstall remains skipped, and self-disable is skipped for safety.
+- Updated current-behavior docs to reflect the split YAML layout, dependency metadata, version maintenance rule, and documentation maintenance expectation.
+
 ## 0.1.0-alpha26-core
 
 - Reworked project documentation so current behavior, architecture, permissions, roadmap, and release history are clearly separated.

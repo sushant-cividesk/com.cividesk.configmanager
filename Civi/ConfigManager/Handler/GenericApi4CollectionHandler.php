@@ -10,8 +10,9 @@ class GenericApi4CollectionHandler extends AbstractHandler {
   private array $orderBy;
   private int $weight;
   private string $fileName;
+  private bool $splitFiles;
 
-  public function __construct(string $type, string $label, string $directory, string $entity, array $select, array $orderBy, int $weight, string $fileName) {
+  public function __construct(string $type, string $label, string $directory, string $entity, array $select, array $orderBy, int $weight, string $fileName, bool $splitFiles = FALSE) {
     $this->type = $type;
     $this->label = $label;
     $this->directory = $directory;
@@ -20,6 +21,7 @@ class GenericApi4CollectionHandler extends AbstractHandler {
     $this->orderBy = $orderBy;
     $this->weight = $weight;
     $this->fileName = $fileName;
+    $this->splitFiles = $splitFiles;
   }
 
   public function getType(): string { return $this->type; }
@@ -29,47 +31,107 @@ class GenericApi4CollectionHandler extends AbstractHandler {
 
   public function export(): array {
     $rows = $this->api4Get($this->entity, [], $this->select, $this->orderBy);
-    return [[
-      'filename' => $this->fileName,
-      'data' => [
-        'schema_version' => 1,
-        'type' => $this->type . '.collection',
-        'entity' => $this->entity,
-        'dependencies' => [],
-        'items' => $rows,
-      ],
-    ]];
+
+    if (!$this->splitFiles) {
+      return [[
+        'filename' => $this->fileName,
+        'data' => [
+          'schema_version' => 1,
+          'type' => $this->type . '.collection',
+          'entity' => $this->entity,
+          'dependencies' => $this->collectionDependencies($rows),
+          'items' => $rows,
+        ],
+      ]];
+    }
+
+    $files = [];
+    foreach ($rows as $row) {
+      $row = (array) $row;
+      $identityField = $this->getIdentityField($row);
+      if (!$identityField) {
+        continue;
+      }
+      $name = (string) $row[$identityField];
+      $files[] = [
+        'filename' => $this->fileNameFor($name),
+        'data' => [
+          'schema_version' => 1,
+          'type' => $this->type . '.item',
+          'entity' => $this->entity,
+          'name' => $name,
+          'identity_field' => $identityField,
+          'dependencies' => $this->dependenciesForRow($row),
+          'item' => $row,
+        ],
+      ];
+    }
+
+    usort($files, fn($a, $b) => strcmp($a['filename'], $b['filename']));
+    return $files;
   }
 
   public function validate(array $items): array {
     $errors = [];
+    $warnings = [];
     foreach ($items as $filename => $item) {
-      if (($item['type'] ?? '') !== $this->type . '.collection') {
-        $errors[] = [
-          'file' => $filename,
-          'message' => 'Invalid type. Expected ' . $this->type . '.collection.',
-        ];
-        continue;
-      }
-      if (($item['entity'] ?? '') !== $this->entity) {
-        $errors[] = [
-          'file' => $filename,
-          'message' => 'Invalid entity. Expected ' . $this->entity . '.',
-        ];
-      }
-      foreach (($item['items'] ?? []) as $index => $row) {
-        if (!$this->getIdentityField((array) $row)) {
+      $type = (string) ($item['type'] ?? '');
+      if ($type === $this->type . '.collection') {
+        if (($item['entity'] ?? '') !== $this->entity) {
           $errors[] = [
             'file' => $filename,
-            'message' => 'Item at index ' . $index . ' is missing a supported identity field.',
+            'message' => 'Invalid entity. Expected ' . $this->entity . '.',
           ];
         }
+        foreach (($item['items'] ?? []) as $index => $row) {
+          if (!$this->getIdentityField((array) $row)) {
+            $errors[] = [
+              'file' => $filename,
+              'message' => 'Item at index ' . $index . ' is missing a supported identity field.',
+            ];
+          }
+        }
+        if ($this->splitFiles) {
+          $warnings[] = [
+            'file' => $filename,
+            'message' => 'Collection format is still accepted for import, but the current export format writes one YAML file per item.',
+          ];
+        }
+        continue;
       }
+
+      if ($type === $this->type . '.item') {
+        if (($item['entity'] ?? '') !== $this->entity) {
+          $errors[] = [
+            'file' => $filename,
+            'message' => 'Invalid entity. Expected ' . $this->entity . '.',
+          ];
+        }
+        $row = (array) ($item['item'] ?? []);
+        if (!$this->getIdentityField($row)) {
+          $errors[] = [
+            'file' => $filename,
+            'message' => 'Item file is missing a supported identity field in item.',
+          ];
+        }
+        if (!array_key_exists('dependencies', $item)) {
+          $warnings[] = [
+            'file' => $filename,
+            'message' => 'Dependency metadata is missing. Re-export this item before using it as deployment source.',
+          ];
+        }
+        continue;
+      }
+
+      $errors[] = [
+        'file' => $filename,
+        'message' => 'Invalid type. Expected ' . $this->type . '.collection or ' . $this->type . '.item.',
+      ];
     }
     return [
       'type' => $this->getType(),
       'valid' => empty($errors),
-      'warnings' => [],
+      'warnings' => $warnings,
       'errors' => $errors,
       'count' => count($items),
     ];
@@ -87,55 +149,68 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       'errors' => [],
     ];
 
-    foreach ($items as $filename => $file) {
-      if (($file['type'] ?? '') !== $this->type . '.collection') {
-        $summary['errors'][] = ['file' => $filename, 'message' => 'Invalid type. Expected ' . $this->type . '.collection.'];
+    foreach ($this->expandFilesToRows($items, $summary) as $entry) {
+      $filename = $entry['filename'];
+      $row = (array) $entry['row'];
+      $identityField = $this->getIdentityField($row);
+      if (!$identityField) {
+        $summary['errors'][] = ['file' => $filename, 'message' => 'Item is missing a supported identity field.'];
         continue;
       }
 
-      foreach (($file['items'] ?? []) as $row) {
-        $row = (array) $row;
-        $identityField = $this->getIdentityField($row);
-        if (!$identityField) {
-          $summary['errors'][] = ['file' => $filename, 'message' => 'Item is missing a supported identity field.'];
-          continue;
-        }
+      $identityValue = (string) $row[$identityField];
+      $desired = $this->cleanImportValues($row);
+      $existing = $this->api4GetFirst($this->entity, [[$identityField, '=', $identityValue]], ['*']);
 
-        $identityValue = (string) $row[$identityField];
-        $desired = $this->cleanImportValues($row);
-        $existing = $this->api4GetFirst($this->entity, [[$identityField, '=', $identityValue]], ['*']);
-
-        try {
-          if ($existing) {
-            if ($this->desiredDiffers($existing, $desired)) {
-              $summary['update']++;
-              if (!$dryRun) {
-                $this->api4Update($this->entity, [['id', '=', $existing['id']]], $desired);
-              }
-            }
-            else {
-              $summary['skip']++;
+      try {
+        if ($existing) {
+          if ($this->desiredDiffers($existing, $desired)) {
+            $summary['update']++;
+            if (!$dryRun) {
+              $this->api4Update($this->entity, [['id', '=', $existing['id']]], $desired);
             }
           }
           else {
-            $summary['create']++;
-            if (!$dryRun) {
-              $this->api4Create($this->entity, $desired);
-            }
+            $summary['skip']++;
           }
         }
-        catch (\Throwable $e) {
-          $summary['errors'][] = [
-            'file' => $filename,
-            'name' => $identityValue,
-            'message' => $e->getMessage(),
-          ];
+        else {
+          $summary['create']++;
+          if (!$dryRun) {
+            $this->api4Create($this->entity, $desired);
+          }
         }
+      }
+      catch (\Throwable $e) {
+        $summary['errors'][] = [
+          'file' => $filename,
+          'name' => $identityValue,
+          'message' => $e->getMessage(),
+        ];
       }
     }
 
     $summary['ok'] = empty($summary['errors']);
     return $summary;
+  }
+
+  private function expandFilesToRows(array $items, array &$summary): array {
+    $rows = [];
+    foreach ($items as $filename => $file) {
+      $type = (string) ($file['type'] ?? '');
+      if ($type === $this->type . '.collection') {
+        foreach (($file['items'] ?? []) as $row) {
+          $rows[] = ['filename' => $filename, 'row' => (array) $row];
+        }
+      }
+      elseif ($type === $this->type . '.item') {
+        $rows[] = ['filename' => $filename, 'row' => (array) ($file['item'] ?? [])];
+      }
+      else {
+        $summary['errors'][] = ['file' => $filename, 'message' => 'Invalid type. Expected ' . $this->type . '.collection or ' . $this->type . '.item.'];
+      }
+    }
+    return $rows;
   }
 
   private function getIdentityField(array $row): ?string {
@@ -149,6 +224,11 @@ class GenericApi4CollectionHandler extends AbstractHandler {
 
   private function cleanImportValues(array $row): array {
     unset($row['id']);
+    foreach (array_keys($row) as $key) {
+      if (strpos((string) $key, '.') !== FALSE) {
+        unset($row[$key]);
+      }
+    }
     return $row;
   }
 
@@ -176,5 +256,94 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       return json_encode($value);
     }
     return (string) $value;
+  }
+
+  private function fileNameFor(string $name): string {
+    $safe = preg_replace('/[^A-Za-z0-9_.-]+/', '-', $name);
+    $safe = trim((string) $safe, '-');
+    if ($safe === '') {
+      $safe = sha1($name);
+    }
+    return $safe . '.yml';
+  }
+
+  private function collectionDependencies(array $rows): array {
+    $dependencies = [];
+    foreach ($rows as $row) {
+      foreach ($this->dependenciesForRow((array) $row) as $dependency) {
+        $dependencies[] = $dependency;
+      }
+    }
+    return $this->uniqueDependencies($dependencies);
+  }
+
+  private function dependenciesForRow(array $row): array {
+    $dependencies = [];
+
+    if ($this->entity === 'SearchDisplay') {
+      $savedSearch = (string) ($row['saved_search_id.name'] ?? '');
+      if ($savedSearch !== '') {
+        $dependencies[] = [
+          'type' => 'searchkit-saved-searches',
+          'entity' => 'SavedSearch',
+          'name' => $savedSearch,
+          'reason' => 'SearchDisplay belongs to this SavedSearch.',
+        ];
+      }
+      elseif (!empty($row['saved_search_id'])) {
+        $dependencies[] = [
+          'type' => 'searchkit-saved-searches',
+          'entity' => 'SavedSearch',
+          'id' => $row['saved_search_id'],
+          'reason' => 'SearchDisplay belongs to this SavedSearch. Re-export to include the machine name.',
+        ];
+      }
+    }
+
+    if ($this->entity === 'Afform') {
+      foreach ($this->detectAfformSearchkitDependencies($row) as $name) {
+        $dependencies[] = [
+          'type' => 'searchkit-displays',
+          'entity' => 'SearchDisplay',
+          'name' => $name,
+          'reason' => 'FormBuilder layout references this SearchKit display.',
+        ];
+      }
+    }
+
+    if ($this->entity === 'Job' && !empty($row['api_entity'])) {
+      $dependencies[] = [
+        'type' => 'api-entity',
+        'entity' => (string) $row['api_entity'],
+        'reason' => 'Scheduled Job calls this API entity.',
+      ];
+    }
+
+    return $this->uniqueDependencies($dependencies);
+  }
+
+  private function detectAfformSearchkitDependencies(array $row): array {
+    $json = json_encode($row['layout'] ?? $row);
+    if (!$json) {
+      return [];
+    }
+    preg_match_all('/afsearch[A-Za-z0-9_:-]+/', $json, $matches);
+    $names = array_values(array_unique($matches[0] ?? []));
+    sort($names, SORT_NATURAL | SORT_FLAG_CASE);
+    return $names;
+  }
+
+  private function uniqueDependencies(array $dependencies): array {
+    $seen = [];
+    $unique = [];
+    foreach ($dependencies as $dependency) {
+      $key = json_encode($dependency);
+      if (isset($seen[$key])) {
+        continue;
+      }
+      $seen[$key] = TRUE;
+      $unique[] = $dependency;
+    }
+    return $unique;
   }
 }

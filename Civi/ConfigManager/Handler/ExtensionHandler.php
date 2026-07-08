@@ -1,6 +1,8 @@
 <?php
 namespace Civi\ConfigManager\Handler;
 
+use Civi\ConfigManager\Version;
+
 class ExtensionHandler extends AbstractHandler {
   public function getType(): string { return 'extensions'; }
   public function getLabel(): string { return 'Extensions'; }
@@ -102,6 +104,14 @@ class ExtensionHandler extends AbstractHandler {
             }
           }
           elseif ($desired === 'disabled') {
+            if ($key === Version::EXTENSION_KEY) {
+              $summary['skip']++;
+              $summary['warnings'][] = [
+                'extension' => $key,
+                'message' => 'Self-disable is skipped so Configuration Manager can finish the import safely.',
+              ];
+              continue;
+            }
             $summary['disable']++;
             if (!$dryRun) {
               $this->callManager($manager, 'disable', [$key]);

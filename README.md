@@ -6,10 +6,10 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: `0.1.0-alpha26-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha27-core`
 - Supported CiviCRM target: 5.x and 6.x
 
-For release-by-release history, see `CHANGELOG.md`.
+For release-by-release history, see `CHANGELOG.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
 
 ## Purpose
 
@@ -147,7 +147,7 @@ Current export/diff/validate support includes:
 
 Current create/update import support includes:
 
-- Extensions, conservative install/enable/disable only
+- Extensions, conservative install/enable/disable only. Extension status changes exported from CiviCRM can be imported back from YAML, including disable, when the extension code is available. Uninstall/delete is not performed, and Configuration Manager skips disabling itself so the import can finish safely.
 - Option Groups and Values
 - Contact Types
 - Relationship Types
@@ -160,6 +160,19 @@ Current create/update import support includes:
 
 Other handlers may export and diff but still show as not ready for import.
 
+## YAML layout
+
+Most stable config types are stored as collection files, for example `extensions/extensions.yml` or `option-groups/*.yml`. High-churn config types are stored as one YAML file per item:
+
+- `searchkit/saved-searches/<name>.yml`
+- `searchkit/displays/<name>.yml`
+- `formbuilder/afforms/<name>.yml`
+- `scheduled-jobs/<name>.yml`
+
+Each split file uses `type: <handler>.item`, stores the editable record under `item`, and includes a `dependencies` section where dependencies are detectable. Collection files use `type: <handler>.collection` and an `items` list. Existing collection files for these handlers are still accepted for import, but the current export format rewrites them as split files.
+
+The export manifest is written to `manifest.yml`. Its `exported_with` value is read from `info.xml` at runtime, so the extension version only needs to be changed in `info.xml` for generated export metadata.
+
 ## Safety rules
 
 - Import does not delete records in the current alpha series.
@@ -168,6 +181,8 @@ Other handlers may export and diff but still show as not ready for import.
 - Payment processor secrets are never exported.
 - Live transactional data is never exported.
 - ZIP upload only stages YAML files under the configured sync directory.
+- SearchKit Saved Searches, SearchKit Displays, FormBuilder Afforms, and Scheduled Jobs are exported as one YAML file per item so small changes are easier to review.
+- Split item files include dependency metadata where the extension can detect it.
 
 ## System status integration
 
