@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha25-core
+
+- Added `scan-classes@1.0.0` mixin to avoid APIv4 legacy entity scanner warnings.
+- Added CiviCRM status-report integration for Configuration Manager sync health.
+- Status check warns when the initial export is missing or when pending export/import differences exist.
+- Status check shows an informational in-sync notice when YAML and CiviCRM match.
+- Updated docs to state that the custom CLI wrapper is paused and API4 commands remain the current supported automation path.
+
 ## 0.1.0-alpha24-core
 
 - Added create/update import support for generic API4 collection handlers, including SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms.

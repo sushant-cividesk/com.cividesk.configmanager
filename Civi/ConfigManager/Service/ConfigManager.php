@@ -301,12 +301,92 @@ class ConfigManager {
     return $result;
   }
 
+
+  public function getHealth(): array {
+    $status = $this->status();
+    $syncDir = (string) ($status['sync_dir'] ?? $this->getSyncDir());
+    $exists = !empty($status['exists']);
+    $hasYaml = $exists && $this->hasYamlFiles($syncDir);
+
+    if (!$exists) {
+      return [
+        'level' => 'warning',
+        'title' => 'Configuration Manager: Initial export required',
+        'message' => 'The sync directory does not exist yet. Run an export from Configuration Manager to create the initial YAML source files.',
+        'sync_dir' => $syncDir,
+        'changed' => 0,
+        'in_civicrm' => 0,
+        'in_yaml' => 0,
+      ];
+    }
+
+    if (!$hasYaml) {
+      return [
+        'level' => 'warning',
+        'title' => 'Configuration Manager: Initial export required',
+        'message' => 'The sync directory exists but no YAML files were found. Run an export from Configuration Manager before using import as a source of truth.',
+        'sync_dir' => $syncDir,
+        'changed' => 0,
+        'in_civicrm' => 0,
+        'in_yaml' => 0,
+      ];
+    }
+
+    $diff = $this->diff();
+    $changed = 0;
+    $inCivicrm = 0;
+    $inYaml = 0;
+    foreach (($diff['items'] ?? []) as $item) {
+      $changed += !empty($item['changed']) ? count($item['changed']) : 0;
+      $inCivicrm += !empty($item['new_in_db']) ? count($item['new_in_db']) : 0;
+      $inYaml += !empty($item['missing_in_db']) ? count($item['missing_in_db']) : 0;
+    }
+
+    $total = $changed + $inCivicrm + $inYaml;
+    if ($total > 0) {
+      return [
+        'level' => 'warning',
+        'title' => 'Configuration Manager: Pending export/import changes',
+        'message' => sprintf('There are %d pending configuration difference(s): %d changed, %d in CiviCRM, and %d in YAML. Review Configuration Manager and either export the CiviCRM changes to YAML or import YAML to CiviCRM.', $total, $changed, $inCivicrm, $inYaml),
+        'sync_dir' => $syncDir,
+        'changed' => $changed,
+        'in_civicrm' => $inCivicrm,
+        'in_yaml' => $inYaml,
+      ];
+    }
+
+    return [
+      'level' => 'info',
+      'title' => 'Configuration Manager: In sync',
+      'message' => 'CiviCRM configuration matches the YAML files in the sync directory.',
+      'sync_dir' => $syncDir,
+      'changed' => 0,
+      'in_civicrm' => 0,
+      'in_yaml' => 0,
+    ];
+  }
+
+  private function hasYamlFiles(string $dir): bool {
+    if (!is_dir($dir)) {
+      return FALSE;
+    }
+    $iterator = new \RecursiveIteratorIterator(
+      new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS)
+    );
+    foreach ($iterator as $file) {
+      if ($file->isFile() && preg_match('/\.ya?ml$/i', $file->getFilename())) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
   private function getManifestData(): array {
     return [
       'schema_version' => 1,
       'extension' => 'com.cividesk.configmanager',
       'format' => 'yaml',
-      'exported_with' => '0.1.0-alpha24-core',
+      'exported_with' => '0.1.0-alpha25-core',
       'civicrm_min_version' => '5.0',
       'created_by' => 'Configuration Manager',
     ];

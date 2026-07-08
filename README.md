@@ -79,7 +79,7 @@ The stable automation path is core API4 through `cv`:
 ./bin/cvdp api4 ConfigManager.import dryRun=0 yes=1 type=option-groups
 ```
 
-Do not use `cv civicfg:*` yet. A CLI alias can be added later after the API4 engine is stable.
+Do not use `cv civicfg:*` yet. The custom CLI wrapper work is currently paused. Keep docs, tests, and deployment notes based on the API4 commands above until the API4 engine and UI workflows are stable enough for a thin CLI alias.
 
 ## Permissions
 
@@ -117,8 +117,15 @@ Current export/diff support includes:
 Current import implementation:
 
 - Extensions, conservative install/enable/disable only
-- Option groups
-- Option values
+- Option groups and option values
+- Contact types
+- Relationship types
+- Location types
+- Dedupe rules
+- Scheduled jobs
+- SearchKit saved searches
+- SearchKit displays
+- FormBuilder/Afform
 
 Other types are exported/diffed but not yet importable.
 
@@ -221,3 +228,16 @@ The Sync Directory may be either:
 - An absolute server path, for example `/var/www/html/civicrm-buildkit/build/drupal-civi/civicrm-config`.
 
 Relative paths are resolved from the CMS project root where possible. The directory must be writable by the web/PHP user, or its parent directory must be writable so Export can create it. Do not use a URL, and do not point this setting at a public upload directory containing live files or secrets.
+
+## 0.1.0-alpha25-core
+
+This build adds CiviCRM status-report integration and updates the extension metadata/docs for the paused CLI work.
+
+Notes:
+
+- Adds the `scan-classes` mixin so APIv4 entities are discovered through the current scanner instead of the legacy entity scanner.
+- Adds a CiviCRM system status check for Configuration Manager.
+- Shows a warning when the initial YAML export has not been done or when CiviCRM/YAML have pending differences.
+- Shows an informational in-sync notice when the active configuration matches YAML.
+- The status check links back to the Configuration Manager synchronize page, so admins see the same warning from the CiviCRM status report and normal admin login notices.
+- Confirms that the custom CLI wrapper is paused for now; API4 through `cv api4 ConfigManager.*` remains the supported automation path.

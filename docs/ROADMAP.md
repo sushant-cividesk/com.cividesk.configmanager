@@ -42,7 +42,7 @@
 - Extension-specific config handlers.
 - Optional prune/delete mode with strict safeguards.
 - Environment override support.
-- Optional CLI aliases after API4 stabilizes.
+- Optional CLI aliases after API4 stabilizes. This work is paused for the current alpha.
 
 ## Asset Build Improvements
 
@@ -63,3 +63,10 @@
 - Sync Directory now defaults to `civicrm-config` and relative paths resolve from the CMS project root where possible.
 - The legacy `../civicrm-config` value is treated as `civicrm-config`.
 - Settings layout now uses the full available page width.
+
+## 0.1.0-alpha25-core Notes
+
+- The custom `cv civicfg:*` CLI wrapper is paused. Use `cv api4 ConfigManager.*` as the supported command/automation surface for now.
+- The extension now declares the `scan-classes` mixin so APIv4 classes are discovered by the current scanner.
+- CiviCRM system status now reports Configuration Manager health: initial export required, pending differences, or in sync.
+- The status warning is intended to appear anywhere CiviCRM shows system-check notices, including the status report page and normal admin login notification flow.

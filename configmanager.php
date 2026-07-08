@@ -86,6 +86,43 @@ function configmanager_civicrm_navigationMenu(&$menu) {
   ]);
 }
 
+
+/**
+ * Implements hook_civicrm_check().
+ */
+function configmanager_civicrm_check(&$messages) {
+  try {
+    $manager = new \Civi\ConfigManager\Service\ConfigManager();
+    $health = $manager->getHealth();
+    $url = \CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=sync', TRUE, NULL, FALSE, TRUE);
+    $message = ts('%1 <a href="%2">Review Configuration Manager</a>.', [
+      1 => (string) ($health['message'] ?? ''),
+      2 => $url,
+    ]);
+    $title = ts((string) ($health['title'] ?? 'Configuration Manager'));
+    $level = (string) ($health['level'] ?? 'warning');
+    $severity = ($level === 'info') ? \Psr\Log\LogLevel::INFO : \Psr\Log\LogLevel::WARNING;
+    $icon = ($level === 'info') ? 'fa-check' : 'fa-exclamation-triangle';
+
+    $messages[] = new \CRM_Utils_Check_Message(
+      'configmanager_sync_status',
+      $message,
+      $title,
+      $severity,
+      $icon
+    );
+  }
+  catch (\Throwable $e) {
+    $messages[] = new \CRM_Utils_Check_Message(
+      'configmanager_sync_status_error',
+      ts('Configuration Manager could not read the sync status: %1', [1 => $e->getMessage()]),
+      ts('Configuration Manager: Status check failed'),
+      \Psr\Log\LogLevel::WARNING,
+      'fa-exclamation-triangle'
+    );
+  }
+}
+
 /**
  * Implements hook_civicrm_managed().
  */
