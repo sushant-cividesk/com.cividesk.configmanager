@@ -2,14 +2,14 @@
 <extension key="com.cividesk.configmanager" type="module">
   <file>configmanager</file>
   <name>Configuration Manager</name>
-  <description>CiviCRM configuration management with YAML export/import, UI and CLI workflows.</description>
+  <description>CiviCRM configuration management with YAML export/import, UI, API4 automation, and system-status checks.</description>
   <license>AGPL-3.0</license>
   <maintainer>
     <author>Sushant Paste</author>
     <email>sushant@cividesk.com</email>
   </maintainer>
   <releaseDate>2026-07-06</releaseDate>
-  <version>0.1.0-alpha25-core</version>
+  <version>0.1.0-alpha26-core</version>
   <develStage>alpha</develStage>
   <compatibility>
     <ver>5.0</ver>
@@ -18,5 +18,5 @@
   <mixins>
     <mixin>scan-classes@1.0.0</mixin>
   </mixins>
-  <comments>Alpha core build: status report warnings/notices, scan-classes mixin, and docs update for the paused CLI workflow.</comments>
+  <comments>Alpha core build: professional documentation refresh with centralized release history and current API4-first workflow notes.</comments>
 </extension>

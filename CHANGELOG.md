@@ -1,5 +1,14 @@
 # Changelog
 
+All notable ZIP/test builds for `com.cividesk.configmanager` are tracked here. Other docs describe current behavior only and should reference this file instead of repeating release notes.
+
+## 0.1.0-alpha26-core
+
+- Reworked project documentation so current behavior, architecture, permissions, roadmap, and release history are clearly separated.
+- Removed repeated per-release notes from secondary docs and kept version history centralized in this changelog.
+- Updated docs to accurately reflect the paused custom CLI wrapper and the current API4-first automation path.
+- Updated docs to reflect current import safety behavior, sync-directory rules, system-status checks, and supported handlers.
+
 ## 0.1.0-alpha25-core
 
 - Added `scan-classes@1.0.0` mixin to avoid APIv4 legacy entity scanner warnings.
@@ -27,8 +36,8 @@
 
 ## 0.1.0-alpha22-core
 
-- Fixed the top summary cards so Synchronize, Import, Export, and Settings all use the same live diff state instead of showing a false In Sync status on non-sync tabs.
-- Made the Pending Changes and Changed Files sections collapsible.
+- Fixed top summary cards so Synchronize, Import, Export, and Settings all use the same live diff state instead of showing a false In Sync status on non-sync tabs.
+- Made Pending Changes and Changed Files sections collapsible.
 - Simplified Changed Files into compact single-line rows with the file path, status, change count, type, field preview, and Diff button.
 - Renamed confusing diff labels to In CiviCRM and In YAML.
 - Hid export-only differences from the Import Preview so a fresh install with no YAML does not look like it will remove CiviCRM data.
@@ -38,7 +47,7 @@
 
 - Renamed the extension key from `org.cividesk.configmanager` to `com.cividesk.configmanager`.
 - Hardened Sync Directory locking when `civicfg_sync_dir` is defined in `civicrm.settings.php`; the UI now treats the value as code-owned and does not save UI changes to it.
-- Added Drupal-style import behavior for supported option-value removals: if an option value exists in CiviCRM but is absent from the YAML file for that option group, import removes it from CiviCRM.
+- Added Drupal-style import behavior for supported option-value removals.
 - Kept import conservative for unsupported config types and whole missing option-group files.
 - Made Import Preview, Upload Single YAML, Upload ZIP Archive, Full Archive export, and Single File export sections collapsible.
 - Kept the Raw API Result panel removed and kept the Node-based asset compiler reverted.
@@ -46,14 +55,14 @@
 ## 0.1.0-alpha19-core
 
 - Disabled Sync Directory editing in the UI when `civicfg_sync_dir` is defined in `civicrm.settings.php` through `$civicrm_setting['domain']['civicfg_sync_dir']`.
-- Updated extension UI labels and button text to Title Case for a more consistent admin experience.
+- Updated short extension UI labels and button text toward Title Case for a more consistent admin experience.
 - Documented settings override behavior.
 
 ## 0.1.0-alpha18-core
 
 - Fixed delayed style rendering / FOUC after the UI asset refactor.
-- Added a tiny critical stylesheet that is rendered before the Configuration Manager markup.
-- Kept the full UI styling in `css/configmanager.css`.
+- Added a tiny critical stylesheet rendered before the Configuration Manager markup.
+- Kept full UI styling in `css/configmanager.css`.
 - Added hidden modal markup so diff modal contents cannot flash before CSS loads.
 - Updated JavaScript to open/close modals by toggling both `hidden` and `is-open`.
 

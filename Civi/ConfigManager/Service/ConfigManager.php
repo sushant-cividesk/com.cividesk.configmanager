@@ -386,7 +386,7 @@ class ConfigManager {
       'schema_version' => 1,
       'extension' => 'com.cividesk.configmanager',
       'format' => 'yaml',
-      'exported_with' => '0.1.0-alpha25-core',
+      'exported_with' => '0.1.0-alpha26-core',
       'civicrm_min_version' => '5.0',
       'created_by' => 'Configuration Manager',
     ];

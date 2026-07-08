@@ -1,72 +1,62 @@
 # Roadmap
 
-## Phase 1 - current alpha
+This roadmap describes planned work. Completed release history is maintained in `../CHANGELOG.md`.
 
-- CiviCRM 5.x/6.x compatible extension scaffold.
-- API4 core automation path.
-- YAML export/diff/validate.
-- UI synchronize/import/export/settings flow.
-- Safe no-delete import for initial supported handlers.
-- ZIP and single YAML staging.
-- Single file export preview/download.
+## Current alpha scope
+
+The current alpha focuses on a safe, reviewable configuration workflow:
+
+- API4 automation surface.
+- YAML export, diff, and validation.
+- UI synchronize/import/export/settings tabs.
+- Non-destructive import for supported handlers.
+- Single YAML and ZIP staging.
+- Single-file export preview and download.
 - Granular permissions.
+- CiviCRM status report integration.
+- Dependency-free UI assets.
 
-## Phase 1.1
+## Phase 1 completion
 
-- Keep UI assets and templates separated as features grow.
+Before treating phase 1 as complete, finish:
 
-- Complete import handlers for:
-  - Custom groups and fields
-  - SearchKit saved searches
-  - SearchKit displays
-  - FormBuilder/Afform
-  - Message templates
-  - Settings allowlist
-  - Scheduled jobs
-  - Dedupe rules
-  - Financial types
-  - Payment processors, sanitized
+- Custom Groups and Fields import.
+- Message Templates import.
+- CiviCRM Settings Allowlist import.
+- Dependency graph validation.
+- Round-trip tests for all phase 1 handlers.
+- Drupal, WordPress, and Standalone smoke tests.
+- Clearer import readiness and warning messages per handler.
+- Final decision on Financial Types import support.
+- Final decision on sanitized Payment Processors import support.
 
-## Phase 1.2
+## Phase 1.1 hardening
 
-- Round-trip tests for every phase 1 handler.
-- Compatibility smoke tests on Drupal, WordPress, and Standalone.
-- Better dependency metadata and validation.
-- More detailed import preview per handler.
+- Improve diff summaries for large files.
+- Add more handler-specific validation.
+- Add safer dependency detection for SearchKit, Afform, custom fields, and option values.
+- Improve status report wording after real-world testing.
+- Add documentation for deployment workflows between dev/stage/prod.
 
-## Phase 2
+## Phase 2 candidates
 
 - CiviRules.
 - Mosaico templates.
-- SQL queries.
-- Extension-specific config handlers.
-- Optional prune/delete mode with strict safeguards.
+- SQL query definitions.
+- Contact summary layouts.
+- Extension-specific configuration handlers.
 - Environment override support.
-- Optional CLI aliases after API4 stabilizes. This work is paused for the current alpha.
+- Optional prune/delete mode with strict safeguards and explicit confirmation.
+- Optional CLI aliases after API4 stabilizes.
 
-## Asset Build Improvements
+## Deferred CLI wrapper
 
-- Consider adding optional Stylelint/ESLint in a future build once the UI stabilizes.
-- Keep runtime CSS/JavaScript dependency-free and avoid a required Node/npm compiler for CiviCRM 5.x/6.x compatibility.
+The custom `cv civicfg:*` wrapper is paused. API4 remains the supported command surface for now.
 
-## 0.1.0-alpha22-core Notes
+A future wrapper should be thin and should call the existing API4 actions instead of duplicating business logic.
 
-- Summary cards now always use the live configuration diff, so non-sync tabs do not show a false `In Sync` state.
-- Pending Changes and Changed Files are collapsible.
-- Changed Files use compact single-line rows.
-- Import Preview only shows YAML-to-CiviCRM changes and skips export-only differences.
-- Import remains non-destructive in this alpha when YAML files are missing.
+## Asset tooling
 
+No Node/npm build step is required today.
 
-## 0.1.0-alpha24-core Notes
-
-- Sync Directory now defaults to `civicrm-config` and relative paths resolve from the CMS project root where possible.
-- The legacy `../civicrm-config` value is treated as `civicrm-config`.
-- Settings layout now uses the full available page width.
-
-## 0.1.0-alpha25-core Notes
-
-- The custom `cv civicfg:*` CLI wrapper is paused. Use `cv api4 ConfigManager.*` as the supported command/automation surface for now.
-- The extension now declares the `scan-classes` mixin so APIv4 classes are discovered by the current scanner.
-- CiviCRM system status now reports Configuration Manager health: initial export required, pending differences, or in sync.
-- The status warning is intended to appear anywhere CiviCRM shows system-check notices, including the status report page and normal admin login notification flow.
+Optional Stylelint/ESLint can be considered later, but runtime CSS and JavaScript should remain simple and dependency-free for CiviCRM 5.x/6.x compatibility.

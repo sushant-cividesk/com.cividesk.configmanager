@@ -1,99 +1,109 @@
 # Implementation Plan
 
+This document records current implementation decisions and remaining work. Version history is maintained in `../CHANGELOG.md`.
+
 ## Locked decisions
 
 - Extension key: `com.cividesk.configmanager`
 - UI name: `Configuration Manager`
-- File format: YAML only
-- Default config directory: `civicrm-config`
-- Setting: `civicfg_sync_dir`
-- CiviCRM support: 5.x and 6.x
-- Import delete behavior: never delete in phase 1
-- Financial types: export by default with dependencies, no delete
-- Payment processors: export sanitized only, no secrets
-- Existing `org.civicoop.configitems`: reference only, not dependency
+- File format: YAML
+- Default sync directory: `civicrm-config`
+- Sync directory setting: `civicfg_sync_dir`
+- Target compatibility: CiviCRM 5.x and 6.x
+- Current command strategy: API4 through `cv api4 ConfigManager.*`
+- Current import delete behavior: no deletes in alpha
+- Payment processors: export sanitized data only; never export secrets
+- `org.civicoop.configitems`: reference only; not a dependency
 
 ## Current command strategy
 
-Use core API4 as the stable CLI/automation path.
+Use API4 for command-line and automation flows:
 
 ```bash
 cv api4 ConfigManager.status
+cv api4 ConfigManager.listTypes
+cv api4 ConfigManager.diff
+cv api4 ConfigManager.validate
+cv api4 ConfigManager.export dryRun=1
 cv api4 ConfigManager.export dryRun=0
 cv api4 ConfigManager.import dryRun=1 type=option-groups
+cv api4 ConfigManager.import dryRun=0 yes=1 type=option-groups
 ```
 
-Do not rely on custom `cv civicfg:*` commands yet. The wrapper is paused until the API4 engine and UI behavior settle; update all operational docs around `cv api4 ConfigManager.*` commands for now.
+The custom `cv civicfg:*` wrapper is paused. Do not document or build release processes around that wrapper until the API4/UI behavior is stable.
 
 ## Dependency order
 
+Handlers should run in this order unless a new dependency requires adjustment:
+
 1. Extensions
-2. Option groups and option values
-3. Contact types / relationship types / location types
-4. Financial types
-5. Payment processors, sanitized
-6. Custom groups
-7. Custom fields
-8. CiviCRM settings allowlist
-9. Message templates
-10. Dedupe rules
-11. Scheduled jobs
-12. SearchKit saved searches
-13. SearchKit displays
-14. FormBuilder / Afform
-15. Contact summary layouts
+2. Option Groups and Values
+3. Contact Types
+4. Relationship Types
+5. Location Types
+6. Financial Types
+7. Payment Processors, sanitized
+8. Custom Groups and Fields
+9. CiviCRM Settings Allowlist
+10. Message Templates
+11. Dedupe Rules
+12. Scheduled Jobs
+13. SearchKit Saved Searches
+14. SearchKit Displays
+15. FormBuilder Afforms
+16. Contact Summary Layouts, planned
 
-## Near-term coding tasks
+## Current supported import areas
 
-1. Complete custom group/custom field import.
-2. Complete SearchKit saved search import.
-3. Complete SearchKit display import with dependency resolution.
-4. Complete Afform import.
-5. Add message template import.
-6. Add settings allowlist import.
-7. Add dependency graph validation.
-8. Add round-trip tests.
-9. Add WP and Standalone compatibility smoke tests.
+Create/update import is currently implemented for:
 
-## Longer-term tasks
+- Extensions, conservative install/enable/disable only
+- Option Groups and Values
+- Contact Types
+- Relationship Types
+- Location Types
+- Dedupe Rules
+- Scheduled Jobs
+- SearchKit Saved Searches
+- SearchKit Displays
+- FormBuilder Afforms
 
-See `docs/ROADMAP.md`.
+Import remains non-destructive. Extra CiviCRM records are not removed when missing from YAML.
 
+## Remaining phase 1 work
 
-## Current refactor notes
+- Complete Custom Groups and Fields import.
+- Complete Message Templates import.
+- Complete CiviCRM Settings Allowlist import.
+- Add dependency graph validation before import.
+- Add round-trip tests for each handler.
+- Add compatibility smoke tests for Drupal, WordPress, and Standalone.
+- Add clearer per-handler import readiness reporting.
+- Re-check whether Financial Types should become importable in phase 1 or stay export/diff only.
+- Re-check whether sanitized Payment Processors should ever be importable by default.
 
-The UI layer is now separated into controller, presenter, file-transfer, permission, asset-loader, partial templates, CSS, and JavaScript. Future UI changes should avoid adding large inline `<style>` or `<script>` blocks to Smarty templates.
+## UI maintenance rules
 
-## UI Maintainability
+- Keep page logic out of Smarty templates.
+- Keep CSS in `css/configmanager.css` unless it must be critical preload CSS.
+- Keep `css/configmanager-preload.css` small.
+- Keep JavaScript dependency-free in `js/configmanager.js`.
+- Do not reintroduce large inline `<style>` or `<script>` blocks.
+- Do not add a required frontend build step for the current alpha.
 
-- Keep Smarty templates focused on markup only.
-- Keep full UI CSS in `css/configmanager.css`.
-- Keep vanilla JavaScript in `js/configmanager.js`.
-- Do not require Node/npm or a frontend compiler for phase 1.
-- Keep critical preload CSS small in `css/configmanager-preload.css`.
+## Sync directory rules
 
-## Settings Ownership
+- Use `civicrm-config` as the default relative directory.
+- Resolve relative paths from the CMS/project root where possible.
+- Reject URL-style values.
+- Lock the UI field when `civicfg_sync_dir` is defined in `civicrm.settings.php`.
 
-- If `civicfg_sync_dir` is set in `civicrm.settings.php`, lock the UI field and treat the path as code-owned.
+## Status reporting rules
 
-## 0.1.0-alpha22-core Notes
+The CiviCRM status report should warn when:
 
-- Summary cards now always use the live configuration diff, so non-sync tabs do not show a false `In Sync` state.
-- Pending Changes and Changed Files are collapsible.
-- Changed Files use compact single-line rows.
-- Import Preview only shows YAML-to-CiviCRM changes and skips export-only differences.
-- Import remains non-destructive in this alpha when YAML files are missing.
+- The sync directory is missing.
+- The sync directory exists but no YAML files exist.
+- CiviCRM and YAML have pending differences.
 
-
-## 0.1.0-alpha24-core Notes
-
-- Sync Directory now defaults to `civicrm-config` and relative paths resolve from the CMS project root where possible.
-- The legacy `../civicrm-config` value is treated as `civicrm-config`.
-- Settings layout now uses the full available page width.
-
-## 0.1.0-alpha25-core Notes
-
-- The custom `cv civicfg:*` CLI wrapper is paused. Use `cv api4 ConfigManager.*` as the supported command/automation surface for now.
-- The extension now declares the `scan-classes` mixin so APIv4 classes are discovered by the current scanner.
-- CiviCRM system status now reports Configuration Manager health: initial export required, pending differences, or in sync.
-- The status warning is intended to appear anywhere CiviCRM shows system-check notices, including the status report page and normal admin login notification flow.
+When there are no differences, the status check may show an informational in-sync notice.

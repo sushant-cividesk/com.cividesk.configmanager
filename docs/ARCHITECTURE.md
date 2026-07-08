@@ -1,12 +1,23 @@
 # Architecture
 
-Configuration Manager is structured around a small core engine, handlers, and a CiviCRM-compatible UI.
+Configuration Manager is organized around a small service layer, type-specific handlers, YAML storage, an API4 facade, and a CiviCRM-compatible UI.
 
-## Main layers
+Release history is maintained in `../CHANGELOG.md`. This document describes the current architecture only.
 
-### API4 facade
+## Runtime flow
 
-`Civi/Api4/ConfigManager.php` exposes the stable automation interface:
+```text
+UI / cv api4
+  -> Civi\Api4\ConfigManager actions
+  -> Civi\ConfigManager\Service\ConfigManager
+  -> HandlerRegistry
+  -> HandlerInterface implementations
+  -> YamlFileStorage / SimpleYaml
+```
+
+## API4 facade
+
+`Civi/Api4/ConfigManager.php` exposes the supported automation interface:
 
 - `ConfigManager.status`
 - `ConfigManager.listTypes`
@@ -15,124 +26,118 @@ Configuration Manager is structured around a small core engine, handlers, and a 
 - `ConfigManager.validate`
 - `ConfigManager.import`
 
-This keeps the CLI path compatible with core `cv api4`.
+The API4 actions live under `Civi/Api4/Action/ConfigManager`. They keep the command workflow compatible with normal `cv api4` usage.
 
-### Service layer
+The custom `cv civicfg:*` wrapper is intentionally paused. See `../README.md#api4-and-automation`.
 
-`Civi/ConfigManager/Service/ConfigManager.php` coordinates:
+## Service layer
 
-- sync directory discovery
-- handler registry
-- export
-- diff
-- validate
-- import
-- manifest writing
+`Civi/ConfigManager/Service/ConfigManager.php` coordinates the main operations:
 
-### Handler layer
+- Sync directory resolution.
+- Managed handler filtering.
+- Full export and dry-run export.
+- Diff calculation.
+- YAML validation.
+- Import preview and import apply.
+- Manifest writing.
+- System-status health summary.
 
-Each supported config type has a handler under `Civi/ConfigManager/Handler`.
+The service resolves relative sync directories from the CMS/project root where possible. The legacy value `../civicrm-config` is normalized to `civicrm-config`.
 
-A handler knows how to:
+## Handler registry
 
-- export active DB config into one or more YAML files
-- diff active DB config against YAML files
-- validate YAML files
-- import supported create/update changes
+`Civi/ConfigManager/Service/HandlerRegistry.php` defines the built-in config handlers and their order.
 
-### Storage layer
+The current built-in handlers cover:
 
-`YamlFileStorage` reads/writes YAML files under the sync directory.
+- Extensions
+- Option Groups and Values
+- Contact Types
+- Relationship Types
+- Location Types
+- Financial Types
+- Payment Processors
+- Custom Groups and Fields
+- CiviCRM Settings Allowlist
+- Message Templates
+- Dedupe Rules
+- Scheduled Jobs
+- SearchKit Saved Searches
+- SearchKit Displays
+- FormBuilder Afforms
 
-`SimpleYaml` uses `ext-yaml` or Symfony YAML when available, with a fallback writer/parser for simple YAML.
-
-### UI layer
-
-The route class is intentionally thin:
-
-- `CRM/Configmanager/Page/Main.php`
-
-UI logic is split into:
-
-- `Civi/ConfigManager/UI/MainPage` - main controller
-- `Civi/ConfigManager/UI/Request` - request parsing
-- `Civi/ConfigManager/UI/Presenter` - template rows/summaries/labels
-- `Civi/ConfigManager/UI/FileTransfer` - upload/download/single preview
-- `Civi/ConfigManager/UI/Permission` - permission names and checks
-- `Civi/ConfigManager/UI/AssetLoader` - loads CSS/JS through CiviCRM resources
-
-### Template
-
-`templates/CRM/Configmanager/Page/Main.tpl` uses CiviCRM-compatible Smarty and includes smaller partial templates. CSS and JavaScript live in separate resource files loaded by `AssetLoader`.
-
-No npm or third-party JavaScript dependency is required in phase 1.
-
-## Extension points
-
-Other extensions can register extra handlers through:
+Other extensions can alter the handler list with:
 
 ```php
 hook_civicfg_configTypes(&$handlers)
 ```
 
-Handlers should implement `Civi\ConfigManager\Handler\HandlerInterface`.
+Custom handlers should implement `Civi\ConfigManager\Handler\HandlerInterface`.
 
+## Handler contract
 
-### Template and asset layer
+Each handler is responsible for one config type and implements:
 
-The UI is intentionally split into maintainable pieces:
+- `getType()` - machine name used in filters/API calls.
+- `getLabel()` - human-readable label.
+- `getDirectory()` - sync directory subdirectory.
+- `getWeight()` - dependency/order priority.
+- `export()` - returns YAML file definitions from active CiviCRM config.
+- `diff()` - compares active config with YAML files.
+- `validate()` - checks YAML format and identity requirements.
+- `import()` - applies supported YAML changes.
 
-- `templates/CRM/Configmanager/Page/Main.tpl` is a small wrapper.
-- `templates/CRM/Configmanager/Page/Partials/*.tpl` contains the individual page sections.
-- `css/configmanager.css` contains scoped styles under `.crm-configmanager-block`.
-- `js/configmanager.js` contains vanilla JavaScript for modals and AJAX single-file export preview.
+`AbstractHandler` provides common diff and validation defaults. Import defaults to `not_implemented` unless a handler overrides it.
 
-Assets are loaded with `CRM_Core_Resources` via `Civi/ConfigManager/UI/AssetLoader`, which avoids inline style/script blocks and keeps the extension more compatible with CiviCRM themes.
+## Import model
 
-## UI asset loading
+Imports are conservative in the current alpha series.
 
-The UI uses three layers:
+- Create/update is supported only by specific handlers.
+- Import does not delete records.
+- Machine names are treated as identities.
+- Suspected machine-name renames are warned and skipped.
+- Unsupported handlers report `not_implemented` instead of partially applying changes.
 
-- `css/configmanager-preload.css` is a tiny critical stylesheet rendered before the page block to prevent delayed unstyled rendering and hidden modal flash.
-- `css/configmanager.css` contains the full scoped UI styling.
-- `js/configmanager.js` contains vanilla JavaScript interactions.
+## Storage layer
 
-The critical stylesheet must stay small and must not replace the full CSS file.
+`Civi/ConfigManager/Storage/YamlFileStorage.php` reads and writes YAML under the configured sync directory.
 
+`Civi/ConfigManager/Util/SimpleYaml.php` uses available YAML support when possible and includes a simple fallback for the extension's YAML structures.
 
-## UI Asset Maintenance
+## UI layer
 
-The extension intentionally avoids a Node/npm build step. Edit the runtime files directly:
+The route/page wrapper is intentionally thin:
 
-- `css/configmanager.css` for full scoped UI styling.
-- `css/configmanager-preload.css` for tiny critical styles only.
-- `js/configmanager.js` for vanilla JavaScript interactions.
+- `CRM/Configmanager/Page/Main.php`
 
-Keep these files dependency-free for CiviCRM 5.x/6.x compatibility.
+UI logic is split into focused classes:
 
-## Code-Defined Settings
+- `Civi/ConfigManager/UI/MainPage` - page controller.
+- `Civi/ConfigManager/UI/Request` - request parsing.
+- `Civi/ConfigManager/UI/Presenter` - display rows, labels, summaries, and diff view data.
+- `Civi/ConfigManager/UI/FileTransfer` - upload, ZIP handling, preview, and download.
+- `Civi/ConfigManager/UI/Permission` - permission constants and checks.
+- `Civi/ConfigManager/UI/AssetLoader` - CiviCRM resource loading.
 
-If `civicfg_sync_dir` is defined in `civicrm.settings.php`, the UI treats it as environment-owned configuration and locks the Sync Directory field. This avoids accidental UI changes to path configuration that should be controlled by code/deployment.
+## Templates and assets
 
+Templates are CiviCRM-compatible Smarty files:
 
-## 0.1.0-alpha22-core Notes
+- `templates/CRM/Configmanager/Page/Main.tpl`
+- `templates/CRM/Configmanager/Page/Partials/*.tpl`
 
-- Summary cards now always use the live configuration diff, so non-sync tabs do not show a false `In Sync` state.
-- Pending Changes and Changed Files are collapsible.
-- Changed Files use compact single-line rows.
-- Import Preview only shows YAML-to-CiviCRM changes and skips export-only differences.
-- Import remains non-destructive in this alpha when YAML files are missing.
+Assets are dependency-free runtime files:
 
+- `css/configmanager-preload.css` - small critical CSS to prevent unstyled flash and modal flash.
+- `css/configmanager.css` - full scoped styles under the Configuration Manager wrapper.
+- `js/configmanager.js` - vanilla JavaScript for modals and AJAX preview.
 
-## 0.1.0-alpha24-core Notes
+There is no required Node/npm build step in the current alpha.
 
-- Sync Directory now defaults to `civicrm-config` and relative paths resolve from the CMS project root where possible.
-- The legacy `../civicrm-config` value is treated as `civicrm-config`.
-- Settings layout now uses the full available page width.
+## Settings ownership
 
-## 0.1.0-alpha25-core Notes
+`civicfg_sync_dir` can be UI-managed or code-owned.
 
-- The custom `cv civicfg:*` CLI wrapper is paused. Use `cv api4 ConfigManager.*` as the supported command/automation surface for now.
-- The extension now declares the `scan-classes` mixin so APIv4 classes are discovered by the current scanner.
-- CiviCRM system status now reports Configuration Manager health: initial export required, pending differences, or in sync.
-- The status warning is intended to appear anywhere CiviCRM shows system-check notices, including the status report page and normal admin login notification flow.
+When defined in `civicrm.settings.php`, the UI treats the sync directory as environment-owned configuration and locks the field to avoid accidental changes.

@@ -1,243 +1,212 @@
 # Configuration Manager
 
-CiviCRM Configuration Manager is a CiviCRM extension for Drupal-style configuration management.
+Configuration Manager is a CiviCRM extension that exports selected CiviCRM configuration to YAML, compares the active database with the YAML sync directory, and imports supported YAML changes back into CiviCRM.
 
 - Extension key: `com.cividesk.configmanager`
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Phase 1 target: CiviCRM 5.x and 6.x
+- Current build: `0.1.0-alpha26-core`
+- Supported CiviCRM target: 5.x and 6.x
 
-## What it does
+For release-by-release history, see `CHANGELOG.md`.
 
-The extension exports supported CiviCRM configuration from the active database into YAML files in a configured sync directory. The YAML directory can be committed to Git or moved between environments. The UI then compares the active database against the YAML files and lets an administrator export database changes or import supported YAML changes.
+## Purpose
 
-This follows the same workflow idea as Drupal configuration management:
+The extension is intended to provide a Drupal-style configuration workflow for CiviCRM:
 
-1. Export configuration to files.
-2. Review the file changes.
-3. Move or commit the files.
-4. Import the files into another environment.
+1. Export configuration from CiviCRM to YAML.
+2. Review and commit YAML changes in Git.
+3. Move the YAML directory between environments.
+4. Preview and import supported YAML changes into CiviCRM.
+
+The YAML directory is treated as the deployable source of truth for supported configuration types. This extension is still alpha software, so imports remain intentionally conservative.
 
 ## Current UI
 
-The admin UI has four main tabs.
+The admin UI has four tabs.
 
 ### Synchronize
 
-Shows pending differences between the active CiviCRM database and YAML files.
+Shows the current difference between active CiviCRM configuration and YAML files.
 
-Actions:
+Available actions:
 
-- `Export` writes active database changes to YAML.
-- `Import` opens a preview of YAML changes that can be applied to CiviCRM.
-- `Validate` checks YAML files for format/handler issues.
-- `Diff` opens a field-level modal for changed files.
+- `Export` writes active CiviCRM changes to YAML.
+- `Import` opens an import preview for supported YAML-to-CiviCRM changes.
+- `Validate` checks YAML structure and handler compatibility.
+- `Diff` shows field-level details for a changed file.
 
 ### Import
 
-Supports safe staging and import flows.
+Reviews YAML files in the sync directory and applies supported create/update changes to CiviCRM.
 
-Current support:
+Current import behavior:
 
-- Preview importable YAML changes.
-- Apply supported create/update changes.
-- Upload one YAML file into the sync directory.
-- Upload a ZIP archive into the sync directory.
+- Imports are non-destructive in this alpha.
+- Missing YAML does not delete existing CiviCRM records.
+- Records that exist only in CiviCRM are left unchanged.
+- Unsupported handlers are shown as not ready instead of applying partial changes.
 
-Phase 1 import never deletes or prunes records.
+The Import tab also supports uploading a single YAML file or a ZIP archive into the sync directory before previewing changes.
 
 ### Export
 
-Supports:
+Exports active CiviCRM configuration to YAML.
+
+Available options:
 
 - Full export to the sync directory.
 - ZIP download of the current sync directory.
-- Single file export preview without page reload.
-- Single YAML download.
+- Single-file preview.
+- Single-file YAML download.
 
 ### Settings
 
-Supports:
+Controls the sync directory and the managed type filter.
 
-- Sync directory path.
-- Enabled config types.
-- CiviCRM settings allowlist.
+Settings include:
 
-## CLI/API4
+- Sync Directory
+- Managed Types
+- Settings Allowlist
 
-The stable automation path is core API4 through `cv`:
+Leaving Managed Types unchecked means all supported handlers are managed.
 
-```bash
-./bin/cvdp api4 ConfigManager.status
-./bin/cvdp api4 ConfigManager.listTypes
-./bin/cvdp api4 ConfigManager.export dryRun=1
-./bin/cvdp api4 ConfigManager.export dryRun=0
-./bin/cvdp api4 ConfigManager.diff
-./bin/cvdp api4 ConfigManager.validate
-./bin/cvdp api4 ConfigManager.import dryRun=1 type=option-groups
-./bin/cvdp api4 ConfigManager.import dryRun=0 yes=1 type=option-groups
-```
+## Sync Directory
 
-Do not use `cv civicfg:*` yet. The custom CLI wrapper work is currently paused. Keep docs, tests, and deployment notes based on the API4 commands above until the API4 engine and UI workflows are stable enough for a thin CLI alias.
+The Sync Directory must be a server-local filesystem path. It is not a URL and not a desktop/Finder path.
 
-## Permissions
-
-The extension defines granular permissions.
-
-- `access CiviCRM configuration manager`
-- `export CiviCRM configuration`
-- `import CiviCRM configuration`
-- `administer CiviCRM configuration manager`
-
-Users with `administer CiviCRM` are treated as superusers and can perform all actions.
-
-See `docs/PERMISSIONS.md` for details.
-
-## Phase 1 handlers
-
-Current export/diff support includes:
-
-- Extensions
-- Option groups and option values
-- Contact types
-- Relationship types
-- Location types
-- Financial types
-- Payment processors, sanitized only
-- Custom groups and fields
-- CiviCRM settings allowlist
-- Message templates
-- Dedupe rules
-- Scheduled jobs
-- SearchKit saved searches
-- SearchKit displays
-- FormBuilder/Afform
-
-Current import implementation:
-
-- Extensions, conservative install/enable/disable only
-- Option groups and option values
-- Contact types
-- Relationship types
-- Location types
-- Dedupe rules
-- Scheduled jobs
-- SearchKit saved searches
-- SearchKit displays
-- FormBuilder/Afform
-
-Other types are exported/diffed but not yet importable.
-
-## Safety rules
-
-- Import never deletes records in phase 1.
-- Payment processor secrets are never exported.
-- Live data is never exported.
-- Machine names are treated as identities.
-- Suspected machine-name renames are warned and skipped.
-- ZIP upload only stages safe YAML files under the sync directory.
-
-## Development structure
-
-Main areas:
-
-- `CRM/Configmanager/Page/Main.php` thin CiviCRM page wrapper.
-- `Civi/ConfigManager/UI/*` UI request/presenter/file-transfer/permission services.
-- `Civi/ConfigManager/Service/*` core orchestration and handler registry.
-- `Civi/ConfigManager/Handler/*` config-type handlers.
-- `Civi/Api4/*` core API4 facade/actions.
-- `templates/CRM/Configmanager/Page/Main.tpl` CiviCRM-compatible Smarty wrapper.
-- `templates/CRM/Configmanager/Page/Partials/*.tpl` smaller UI partials for tabs, filters, sync, import, export, settings, and modals.
-- `css/configmanager.css` scoped UI styles loaded through CiviCRM resources.
-- `js/configmanager.js` vanilla JavaScript for modals and AJAX single-file export preview.
-
-## Buildkit install path
-
-For the current DDEV/Buildkit setup, keep the extension source here:
+Recommended default:
 
 ```text
-/Volumes/Data/www/civi-hub/civicrm-buildkit/extensions/com.cividesk.configmanager
+civicrm-config
 ```
 
-The CiviCRM extension directory should be a symlink to that source folder.
+Absolute path example:
 
+```text
+/var/www/html/civicrm-buildkit/build/drupal-civi/civicrm-config
+```
 
-## 0.1.0-alpha17-core
+Rules:
 
-This build keeps the API4-first workflow and refactors the UI layer for maintainability:
+- Relative paths resolve from the CMS/project root where possible.
+- `../civicrm-config` is treated as the legacy form of `civicrm-config`.
+- Export creates the sync directory if the parent directory is writable by the web/PHP user.
+- URL-style values such as `https://...` are rejected.
+- Do not point the sync directory at a public upload directory containing live files or secrets.
 
-- Smarty templates are split into partials.
-- CSS and JavaScript are separate resource files.
-- No inline UI assets are embedded in the main template.
-- Assets are registered through the CiviCRM resource system.
+### Code-owned Sync Directory
 
-## 0.1.0-alpha18-core
-
-This build fixes the delayed style rendering seen after CSS/JS were split into asset files. A small critical stylesheet is loaded before page markup to stabilize layout and hide modal content immediately, while the full UI remains in `css/configmanager.css`.
-
-## 0.1.0-alpha19-core
-
-This build adds code-defined sync-directory locking.
-
-### Code-Defined Sync Directory
-
-To make the sync directory environment-specific and read-only in the UI, define it in `civicrm.settings.php`:
+For environment-specific deployments, define the path in `civicrm.settings.php`:
 
 ```php
 global $civicrm_setting;
 $civicrm_setting['domain']['civicfg_sync_dir'] = '/var/www/html/civicrm-buildkit/build/drupal-civi/civicrm-config';
 ```
 
-When this value is present, the Settings page shows the Sync Directory field as locked and does not allow it to be edited from the UI.
+When this setting is present, the UI shows the Sync Directory as locked and does not allow UI edits to override the code-defined value.
 
-## 0.1.0-alpha24-core
+## API4 and automation
 
-This build cleans up the Synchronize/Import UI and fixes the false `In Sync` status shown on some tabs.
+The supported command/automation surface is API4 through `cv`.
 
-Notes:
+```bash
+cv api4 ConfigManager.status
+cv api4 ConfigManager.listTypes
+cv api4 ConfigManager.diff
+cv api4 ConfigManager.validate
+cv api4 ConfigManager.export dryRun=1
+cv api4 ConfigManager.export dryRun=0
+cv api4 ConfigManager.import dryRun=1 type=option-groups
+cv api4 ConfigManager.import dryRun=0 yes=1 type=option-groups
+```
 
-- All top summary cards now use the same live diff state on Synchronize, Import, Export, and Settings.
-- Pending Changes and Changed Files are collapsible.
-- Changed Files are shown as compact single-line rows with a Diff button.
-- Diff wording now uses `In CiviCRM` and `In YAML` to make the direction clearer.
-- Import Preview hides export-only differences, so a fresh install with no YAML does not look like it will remove CiviCRM data.
-- Import remains non-destructive in this alpha; missing YAML does not delete existing CiviCRM records.
+The custom `cv civicfg:*` CLI wrapper is paused for the current alpha series. Keep operational workflows on `cv api4 ConfigManager.*` until the API4 engine and UI behavior are stable enough for a thin CLI alias.
 
+## Managed configuration types
 
+Current export/diff/validate support includes:
 
-## 0.1.0-alpha24-core
+- Extensions
+- Option Groups and Values
+- Contact Types
+- Relationship Types
+- Location Types
+- Financial Types
+- Payment Processors, sanitized
+- Custom Groups and Fields
+- CiviCRM Settings Allowlist
+- Message Templates
+- Dedupe Rules
+- Scheduled Jobs
+- SearchKit Saved Searches
+- SearchKit Displays
+- FormBuilder Afforms
 
-This build fixes follow-up UI and sync-directory issues from alpha 22.
+Current create/update import support includes:
 
-Notes:
+- Extensions, conservative install/enable/disable only
+- Option Groups and Values
+- Contact Types
+- Relationship Types
+- Location Types
+- Dedupe Rules
+- Scheduled Jobs
+- SearchKit Saved Searches
+- SearchKit Displays
+- FormBuilder Afforms
 
-- Restores the shorter diff labels `In CiviCRM` and `In YAML`.
-- Changes the default Sync Directory value to `civicrm-config`.
-- Treats the older default value `../civicrm-config` as `civicrm-config` for path resolution.
-- Resolves relative Sync Directory values from the CMS project root where possible, instead of the private CiviCRM config directory.
-- Keeps absolute Sync Directory values supported.
-- Rejects URL-style Sync Directory values because the path must be a server-local filesystem path.
-- Makes the Settings form use the full available page width.
+Other handlers may export and diff but still show as not ready for import.
 
-### Sync Directory Rules
+## Safety rules
 
-The Sync Directory may be either:
+- Import does not delete records in the current alpha series.
+- Machine names are treated as identities.
+- Suspected machine-name renames are warned and skipped.
+- Payment processor secrets are never exported.
+- Live transactional data is never exported.
+- ZIP upload only stages YAML files under the configured sync directory.
 
-- A relative server path, for example `civicrm-config`.
-- An absolute server path, for example `/var/www/html/civicrm-buildkit/build/drupal-civi/civicrm-config`.
+## System status integration
 
-Relative paths are resolved from the CMS project root where possible. The directory must be writable by the web/PHP user, or its parent directory must be writable so Export can create it. Do not use a URL, and do not point this setting at a public upload directory containing live files or secrets.
+The extension implements a CiviCRM status check.
 
-## 0.1.0-alpha25-core
+The status report warns when:
 
-This build adds CiviCRM status-report integration and updates the extension metadata/docs for the paused CLI work.
+- The initial YAML export has not been done.
+- The sync directory exists but has no YAML files.
+- CiviCRM and YAML have pending differences.
 
-Notes:
+When the database and YAML are in sync, the status check reports an informational in-sync notice. CiviCRM displays these checks anywhere normal system-check notices are shown, including the status report page and admin login notification flow.
 
-- Adds the `scan-classes` mixin so APIv4 entities are discovered through the current scanner instead of the legacy entity scanner.
-- Adds a CiviCRM system status check for Configuration Manager.
-- Shows a warning when the initial YAML export has not been done or when CiviCRM/YAML have pending differences.
-- Shows an informational in-sync notice when the active configuration matches YAML.
-- The status check links back to the Configuration Manager synchronize page, so admins see the same warning from the CiviCRM status report and normal admin login notices.
-- Confirms that the custom CLI wrapper is paused for now; API4 through `cv api4 ConfigManager.*` remains the supported automation path.
+## Permissions
+
+The extension defines granular permissions:
+
+- `access CiviCRM configuration manager`
+- `export CiviCRM configuration`
+- `import CiviCRM configuration`
+- `administer CiviCRM configuration manager`
+
+Users with `administer CiviCRM` are treated as superusers for this extension.
+
+See `docs/PERMISSIONS.md` for details.
+
+## Development notes
+
+Important source areas:
+
+- `CRM/Configmanager/Page/Main.php` - thin CiviCRM page wrapper.
+- `Civi/Api4/*` - API4 facade and actions.
+- `Civi/ConfigManager/Service/*` - orchestration and handler registry.
+- `Civi/ConfigManager/Handler/*` - config-type handlers.
+- `Civi/ConfigManager/Storage/YamlFileStorage.php` - YAML file storage.
+- `Civi/ConfigManager/UI/*` - UI request, presenter, transfer, permissions, assets.
+- `templates/CRM/Configmanager/Page/*.tpl` - Smarty templates and partials.
+- `css/configmanager.css` - scoped UI styles.
+- `css/configmanager-preload.css` - tiny critical preload stylesheet.
+- `js/configmanager.js` - vanilla JavaScript interactions.
+
+See `docs/ARCHITECTURE.md` for the implementation structure and `docs/IMPLEMENTATION_PLAN.md` for current technical decisions.
