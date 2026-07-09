@@ -55,7 +55,10 @@ class MessageTemplateHandler extends AbstractHandler {
 
   public function import(array $items, bool $dryRun = TRUE): array {
     $summary = $this->baseImportSummary($dryRun);
+    $currentFiles = $this->currentExportedTemplatesByFilename();
+    $seenFiles = [];
     foreach ($items as $filename => $file) {
+      $seenFiles[$filename] = TRUE;
       if (($file['type'] ?? '') !== 'message_template') {
         $summary['errors'][] = ['file' => $filename, 'message' => 'Invalid type. Expected message_template.'];
         continue;
@@ -95,8 +98,50 @@ class MessageTemplateHandler extends AbstractHandler {
         $summary['errors'][] = ['file' => $filename, 'message' => $e->getMessage()];
       }
     }
+    $this->deleteTemplatesMissingFromYaml($currentFiles, $seenFiles, $dryRun, $summary);
     $summary['ok'] = empty($summary['errors']);
     return $summary;
+  }
+
+  private function currentExportedTemplatesByFilename(): array {
+    $files = [];
+    foreach ($this->export() as $file) {
+      if (!empty($file['filename'])) {
+        $files[(string) $file['filename']] = (array) ($file['data']['template'] ?? []);
+      }
+    }
+    return $files;
+  }
+
+  private function deleteTemplatesMissingFromYaml(array $currentFiles, array $seenFiles, bool $dryRun, array &$summary): void {
+    foreach ($currentFiles as $filename => $template) {
+      if (isset($seenFiles[$filename])) {
+        continue;
+      }
+      $where = $this->identityWhere($template);
+      if (!$where) {
+        continue;
+      }
+      $existing = $this->api4GetFirst('MessageTemplate', $where, ['id', 'msg_title', 'workflow_name', 'is_default']);
+      if (!$existing || empty($existing['id'])) {
+        continue;
+      }
+      $label = (string) (($existing['workflow_name'] ?? '') ?: ($existing['msg_title'] ?? $filename));
+      $summary['delete']++;
+      $summary['warnings'][] = [
+        'file' => $filename,
+        'name' => $label,
+        'message' => 'Message template exists in CiviCRM but not in YAML and will be deleted when import is applied.',
+      ];
+      if (!$dryRun) {
+        try {
+          $this->api4Delete('MessageTemplate', [['id', '=', $existing['id']]]);
+        }
+        catch (\Throwable $e) {
+          $summary['errors'][] = ['file' => $filename, 'message' => 'Delete failed: ' . $e->getMessage()];
+        }
+      }
+    }
   }
 
   private function identityWhere(array $template): array {

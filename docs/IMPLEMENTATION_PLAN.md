@@ -95,7 +95,7 @@ Create/update import is currently implemented for:
 - SearchKit Displays
 - FormBuilder Afforms
 
-Import remains non-destructive. Extra CiviCRM records are not removed when missing from YAML. Payment Processors remain export/diff only because sanitized exports may omit required environment-specific values.
+Import can create, update, and delete supported records according to YAML. Payment Processors remain export/diff only because sanitized exports may omit required environment-specific values.
 
 ## Remaining phase 1 work
 

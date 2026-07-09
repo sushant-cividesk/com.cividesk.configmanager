@@ -7,7 +7,7 @@
   {if $op eq 'sync'}
     <p class="civicfg-help">{ts}Review pending differences between active CiviCRM configuration and YAML files. Export writes CiviCRM changes to YAML. Import applies YAML changes to CiviCRM.{/ts}</p>
   {elseif $op eq 'import'}
-    <p class="civicfg-help">{ts}Review YAML files in the sync directory and apply safe create/update changes. Import never deletes records in this alpha.{/ts}</p>
+    <p class="civicfg-help">{ts}Review YAML files in the sync directory before applying them to CiviCRM. Import treats YAML as the source of truth and may update, create, or delete supported records after confirmation.{/ts}</p>
   {elseif $op eq 'export'}
     <p class="civicfg-help">{ts}Export the active CiviCRM configuration as a ZIP archive or preview one YAML file before saving it.{/ts}</p>
   {elseif $op eq 'settings'}

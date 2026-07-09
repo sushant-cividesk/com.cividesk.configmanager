@@ -100,6 +100,18 @@ class Presenter {
     ];
   }
 
+
+  public function labelsForTypes(ConfigManager $manager, array $types): array {
+    $wanted = array_fill_keys(array_map('strval', $types), TRUE);
+    $labels = [];
+    foreach ($manager->getAllHandlers() as $handler) {
+      if (isset($wanted[$handler->getType()])) {
+        $labels[$handler->getType()] = $handler->getLabel();
+      }
+    }
+    return $labels;
+  }
+
   public function extractDiffFiles(array $result): array {
     $files = [];
     if (empty($result['items']) || !is_array($result['items'])) {
@@ -134,11 +146,6 @@ class Presenter {
     $plan = [];
     foreach ($diffFiles as $file) {
       $status = (string) ($file['status'] ?? 'changed');
-      // Import is YAML -> CiviCRM. Items which only exist in CiviCRM are export-only
-      // differences and must not be presented as importable delete/removal work.
-      if ($status === 'new_in_db') {
-        continue;
-      }
       $type = (string) ($file['type'] ?? '');
       $importable = in_array($type, $this->getImportableTypes(), TRUE);
       $plan[] = [
@@ -176,7 +183,7 @@ class Presenter {
       return ts('Create in CiviCRM');
     }
     if ($status === 'new_in_db') {
-      return ts('In CiviCRM');
+      return ts('Delete from CiviCRM');
     }
     return ts('Update CiviCRM');
   }
@@ -186,7 +193,10 @@ class Presenter {
       return ts('Import for this config type is not available yet.');
     }
     if ($status === 'new_in_db') {
-      return ts('This exists in CiviCRM but not in YAML. Export writes it to YAML. Import will not delete it in this alpha.');
+      return ts('This exists in CiviCRM but not in YAML. Import treats YAML as the source of truth and will delete this record after confirmation. Export first if you want to keep it.');
+    }
+    if ($status === 'missing_in_db') {
+      return ts('This exists in YAML but not in CiviCRM. Import will recreate it. CiviCRM may assign a new numeric database ID.');
     }
     return '';
   }
@@ -222,6 +232,24 @@ class Presenter {
         'title' => ts('Import'),
         'message' => (string) $importResult['error'],
       ];
+    }
+    if (!empty($importResult['validation']['items']) && is_array($importResult['validation']['items'])) {
+      foreach ($importResult['validation']['items'] as $item) {
+        foreach (($item['warnings'] ?? []) as $warning) {
+          $messages[] = [
+            'type' => 'warning',
+            'title' => $this->humanizeType((string) ($item['type'] ?? 'validation')),
+            'message' => (string) ($warning['message'] ?? json_encode($warning)),
+          ];
+        }
+        foreach (($item['errors'] ?? []) as $error) {
+          $messages[] = [
+            'type' => 'error',
+            'title' => $this->humanizeType((string) ($item['type'] ?? 'validation')),
+            'message' => (string) ($error['message'] ?? json_encode($error)),
+          ];
+        }
+      }
     }
     if (empty($importResult['items']) || !is_array($importResult['items'])) {
       return $messages;

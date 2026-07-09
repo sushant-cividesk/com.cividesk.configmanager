@@ -43,11 +43,11 @@
           '<div class="civicfg-modal-header"><strong id="civicfg-confirm-title">Confirm import</strong><button type="button" class="civicfg-close" data-civicfg-confirm-cancel="1" aria-label="Close">×</button></div>' +
           '<div class="civicfg-modal-body">' +
             '<p id="civicfg-confirm-message"></p>' +
-            '<div class="messages warning no-popup">Import uses YAML as the source of truth. Existing CiviCRM records may be updated or recreated with new database IDs. Records only in CiviCRM are not deleted in this alpha.</div>' +
-            '<label class="civicfg-confirm-check"><input type="checkbox" id="civicfg-confirm-reviewed" /> I reviewed the changed files and understand this can revert active CiviCRM changes.</label>' +
-            '<label class="civicfg-confirm-label" for="civicfg-confirm-text">Type IMPORT to continue</label>' +
+            '<div class="messages warning no-popup">This action changes the YAML/CiviCRM sync state. For imports, YAML is the source of truth and supported CiviCRM records may be created, updated, deleted, or recreated with new database IDs.</div>' +
+            '<label class="civicfg-confirm-check"><input type="checkbox" id="civicfg-confirm-reviewed" /> I reviewed the changed files, dependency notes, and understand this action can change active configuration.</label>' +
+            '<label class="civicfg-confirm-label" for="civicfg-confirm-text">Type the confirmation word to continue</label>' +
             '<input type="text" id="civicfg-confirm-text" autocomplete="off" />' +
-            '<div class="civicfg-actions"><button type="button" class="button" data-civicfg-confirm-apply="1" disabled><span>Import</span></button><button type="button" class="button" data-civicfg-confirm-cancel="1"><span>Cancel</span></button></div>' +
+            '<div class="civicfg-actions"><button type="button" class="button" data-civicfg-confirm-apply="1" disabled><span>Continue</span></button><button type="button" class="button" data-civicfg-confirm-cancel="1"><span>Cancel</span></button></div>' +
           '</div>' +
         '</div>';
       var host = document.querySelector('.crm-configmanager-block') || document.body;
@@ -70,8 +70,10 @@
         }
         ev.preventDefault();
         var modal = ensureConfirmModal();
-        var title = form.getAttribute('data-civicfg-confirm-title') || 'Confirm import';
-        var message = form.getAttribute('data-civicfg-confirm-message') || 'Import will update active CiviCRM configuration from YAML.';
+        var title = form.getAttribute('data-civicfg-confirm-title') || 'Confirm action';
+        var message = form.getAttribute('data-civicfg-confirm-message') || 'This action will update configuration.';
+        var word = form.getAttribute('data-civicfg-confirm-word') || 'IMPORT';
+        var buttonText = form.getAttribute('data-civicfg-confirm-button') || 'Continue';
         modal._civicfgForm = form;
         modal.querySelector('#civicfg-confirm-title').textContent = title;
         modal.querySelector('#civicfg-confirm-message').textContent = message;
@@ -81,7 +83,9 @@
         reviewed.checked = false;
         text.value = '';
         apply.disabled = true;
-        function refresh() { apply.disabled = !(reviewed.checked && text.value === 'IMPORT'); }
+        modal.querySelector('.civicfg-confirm-label').textContent = 'Type ' + word + ' to continue';
+        apply.querySelector('span').textContent = buttonText;
+        function refresh() { apply.disabled = !(reviewed.checked && text.value === word); }
         reviewed.onchange = refresh;
         text.oninput = refresh;
         modal.querySelectorAll('[data-civicfg-confirm-cancel]').forEach(function(btn) { btn.onclick = function() { closeConfirmModal(modal); }; });

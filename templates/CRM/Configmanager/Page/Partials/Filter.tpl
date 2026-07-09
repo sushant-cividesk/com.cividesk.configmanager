@@ -6,6 +6,12 @@
           <input type="hidden" name="reset" value="1" />
           <input type="hidden" name="op" value="{$op|escape}" />
           <p class="description">{ts}Leave all unchecked for all managed types. Select one or more types to narrow the preview.{/ts}</p>
+          {if $selectedTypes|@count gt 0 and $exportDependencyTypes|@count gt 0}
+            <div class="messages warning no-popup">
+              {ts}Dependency-aware export/import will also include related config types:{/ts}
+              {foreach from=$exportDependencyTypeLabels key=depType item=depLabel}<code>{$depLabel|escape}</code> {/foreach}
+            </div>
+          {/if}
           <div class="civicfg-checkbox-grid">
             {foreach from=$allTypes item=row}
               <label><input type="checkbox" name="type[]" value="{$row.type|escape}" {if $selectedTypesMap[$row.type]}checked="checked"{/if} /> {$row.label|escape}</label>

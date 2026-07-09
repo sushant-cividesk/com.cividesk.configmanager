@@ -51,13 +51,11 @@ class MainPage {
       }
       elseif ($postAction === 'import_single_yaml') {
         $notice = $this->files->uploadSingleYaml($this->manager);
-        $op = 'sync';
-        $result = $this->manager->diff($types);
+        $this->redirectWithNotice($notice, 'import', 'success');
       }
       elseif ($postAction === 'import_zip_archive') {
         $notice = $this->files->uploadZipArchive($this->manager);
-        $op = 'sync';
-        $result = $this->manager->diff($types);
+        $this->redirectWithNotice($notice, 'import', 'success');
       }
       elseif ($postAction === 'save_settings') {
         $this->saveSettings();
@@ -79,34 +77,33 @@ class MainPage {
         if ($requestedTypes) {
           $notice .= ' ' . ts('The temporary filter was cleared so the Synchronize tab now shows the full managed status.');
         }
-        $types = [];
-        $op = 'sync';
-        $result = $this->manager->diff([]);
+        $this->redirectWithNotice($notice, 'sync', empty($exportResult['errors']) ? 'success' : 'error');
       }
       elseif ($postAction === 'import_apply') {
         $importTypes = $this->request->getSelectedTypes();
         $importResult = $this->manager->import(FALSE, TRUE, $importTypes ?: []);
-        $afterDiff = $this->manager->diff($types);
+        $afterDiff = $this->manager->diff([]);
         $remaining = $this->presenter->countDiffChanges($afterDiff);
         if (!empty($importResult['ok']) && $remaining === 0) {
-          $notice = ts('Import complete. YAML files and active CiviCRM configuration now match for the selected items.');
+          $notice = ts('Import complete. YAML files and active CiviCRM configuration now match.');
+          $type = 'success';
         }
         elseif (!empty($importResult['ok'])) {
           $notice = ts('Import ran, but %1 pending change(s) remain. Review the remaining changes below.', [1 => $remaining]);
+          $type = 'warning';
         }
         else {
           $notice = ts('Import found problems. Review the warnings or errors below.');
+          $type = 'error';
         }
-        $op = 'sync';
-        $result = $afterDiff;
+        $this->redirectWithNotice($notice, 'sync', $type);
       }
       elseif ($postAction === 'validate_files') {
         $validationResult = $this->manager->validate($types);
         $notice = !empty($validationResult['ok'])
           ? ts('Validation passed. No YAML format problems were found for the selected files.')
           : ts('Validation found problems. Review the validation details below.');
-        $op = 'sync';
-        $result = $this->manager->diff($types);
+        $this->redirectWithNotice($notice, 'sync', !empty($validationResult['ok']) ? 'success' : 'warning');
       }
       elseif ($op === 'import') {
         $result = $this->manager->diff($types);
@@ -132,6 +129,11 @@ class MainPage {
     $this->assignTemplate($op, $types, $result, $notice, $validationResult, $importResult);
   }
 
+
+  private function redirectWithNotice(string $message, string $op = 'sync', string $type = 'success'): void {
+    \CRM_Core_Session::setStatus($message, ts('Configuration Manager'), $type);
+    \CRM_Utils_System::redirect(\CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=' . $op));
+  }
 
   private function getCodeDefinedSyncDir(): ?string {
     global $civicrm_setting;
@@ -277,6 +279,8 @@ class MainPage {
       }
     }
 
+    $effectiveExportTypes = $this->manager->getEffectiveExportTypeFilter($types);
+    $exportDependencyTypes = $types ? array_values(array_diff($effectiveExportTypes, $types)) : [];
     $exportItems = $this->files->buildExportItems($this->manager, $types);
     $selectedExportItem = $this->request->getSingleExportKey();
     $singleExport = NULL;
@@ -361,6 +365,9 @@ class MainPage {
     $this->page->assign('importPlan', $importPlan);
     $this->page->assign('importApplyTypes', $importApplyTypes);
     $this->page->assign('importApplyTypesMap', $importApplyTypesMap);
+    $this->page->assign('effectiveExportTypes', $effectiveExportTypes);
+    $this->page->assign('exportDependencyTypes', $exportDependencyTypes);
+    $this->page->assign('exportDependencyTypeLabels', $this->presenter->labelsForTypes($this->manager, $exportDependencyTypes));
     $this->page->assign('exportItems', $exportItems);
     $this->page->assign('selectedExportItem', $selectedExportItem);
     $this->page->assign('singleExport', $singleExport);

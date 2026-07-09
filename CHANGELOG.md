@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-alpha31-core
+
+- Added the alpha29/alpha30 hotfixes into the versioned build, including the API4 metadata fix and Smarty undefined-key warning fix.
+- Changed import behavior for supported handlers so YAML is now the source of truth for create, update, and delete operations after explicit confirmation.
+- Added delete support for records that exist in CiviCRM but not in YAML for Message Templates and generic split/collection API4 handlers such as SearchKit Saved Searches, SearchKit Displays, FormBuilder Afforms, Scheduled Jobs, Contact Types, Relationship Types, Location Types, and Dedupe Rules.
+- Import preview now includes CiviCRM-only records as importable delete actions instead of hiding them.
+- Missing managed YAML dependencies are now import-blocking validation errors instead of warnings.
+- Added dependency notices and confirmation for filtered exports when related types are automatically included.
+- Converted export, import, upload, and validate actions to post/redirect/get so browser refresh does not trigger form resubmission.
+- Updated current-behavior docs for destructive import safeguards, dependency handling, and filtered export behavior.
+
 All notable ZIP/test builds for `com.cividesk.configmanager` are tracked here. Other docs describe current behavior only and should reference this file instead of repeating release notes.
 
 ## 0.1.0-alpha30-core

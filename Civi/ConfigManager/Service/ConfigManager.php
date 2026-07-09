@@ -381,7 +381,8 @@ class ConfigManager {
             continue;
           }
           if (!isset($available[$dependencyType][$dependencyName])) {
-            $result['items'][$itemIndex[$type]]['warnings'][] = [
+            $result['ok'] = FALSE;
+            $result['items'][$itemIndex[$type]]['errors'][] = [
               'file' => $filename,
               'message' => sprintf('Missing dependency in YAML: %s "%s". Export/import related items together to avoid broken relationships.', $dependencyType, $dependencyName),
             ];

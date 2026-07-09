@@ -42,7 +42,7 @@ Before treating phase 1 as complete, finish:
 - Contact summary layouts.
 - Extension-specific configuration handlers.
 - Environment override support.
-- Optional prune/delete mode with strict safeguards and explicit confirmation.
+- Further harden destructive import dependency checks and per-record dependency ordering.
 - Optional CLI aliases after API4 stabilizes.
 
 ## Deferred CLI wrapper

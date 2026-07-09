@@ -448,6 +448,7 @@ abstract class AbstractHandler implements HandlerInterface {
       'dry_run' => $dryRun,
       'create' => 0,
       'update' => 0,
+      'delete' => 0,
       'skip' => 0,
       'warnings' => [],
       'errors' => [],

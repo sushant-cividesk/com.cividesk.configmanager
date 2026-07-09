@@ -1,6 +1,6 @@
   {if $op eq 'import'}
     <h3>{ts}Import From Sync Directory{/ts}</h3>
-    <p>{ts}Review YAML changes that can be applied to CiviCRM. Import follows YAML as the source of truth for supported create/update handlers and does not delete records in this alpha.{/ts}</p>
+    <p>{ts}Review YAML changes that can be applied to CiviCRM. Import follows YAML as the source of truth for supported handlers and may create, update, or delete records after confirmation.{/ts}</p>
 
     {if $importPlan|@count eq 0}
       <div class="messages status no-popup">{ts}Nothing to import from the sync directory. If changes are listed as In CiviCRM on the Synchronize tab, use Export to write them to YAML first.{/ts}</div>
@@ -10,7 +10,7 @@
         <div class="civicfg-panel-body">
           <div class="civicfg-actions">
             {if $canImport and $importApplyTypes|@count gt 0}
-              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Import YAML to CiviCRM" data-civicfg-confirm-message="Import will update active CiviCRM configuration from YAML. This can revert changes made in the UI or database. Continue only after reviewing the changed files.">
+              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Import YAML to CiviCRM" data-civicfg-confirm-word="IMPORT" data-civicfg-confirm-button="Import" data-civicfg-confirm-message="Import will apply YAML as the source of truth. Supported records may be created, updated, or deleted. Continue only after reviewing the changed files and dependency warnings.">
                 <input type="hidden" name="_action" value="import_apply" />
                 {foreach from=$importApplyTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
                 <button type="submit" class="button"><span>{ts}Import{/ts}</span></button>
@@ -48,7 +48,7 @@
 
           <div class="civicfg-actions">
             {if $canImport and $importApplyTypes|@count gt 0}
-              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Import YAML to CiviCRM" data-civicfg-confirm-message="Import will update active CiviCRM configuration from YAML. This can revert changes made in the UI or database. Continue only after reviewing the changed files.">
+              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Import YAML to CiviCRM" data-civicfg-confirm-word="IMPORT" data-civicfg-confirm-button="Import" data-civicfg-confirm-message="Import will apply YAML as the source of truth. Supported records may be created, updated, or deleted. Continue only after reviewing the changed files and dependency warnings.">
                 <input type="hidden" name="_action" value="import_apply" />
                 {foreach from=$importApplyTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
                 <button type="submit" class="button"><span>{ts}Import{/ts}</span></button>

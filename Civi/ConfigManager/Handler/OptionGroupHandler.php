@@ -240,7 +240,7 @@ class OptionGroupHandler extends AbstractHandler {
       $summary['warnings'][] = [
         'file' => $filename,
         'name' => $existingName,
-        'message' => 'Option value exists in CiviCRM but not in YAML. It was left unchanged because imports are non-destructive in this alpha.',
+        'message' => 'Option value exists in CiviCRM but not in YAML. It was left unchanged by this handler; delete support for individual option values is still conservative.',
       ];
     }
   }

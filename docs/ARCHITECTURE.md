@@ -114,11 +114,11 @@ Split files contain one record under `item`, an `identity_field`, and dependency
 Imports are conservative in the current alpha series.
 
 - Create/update is supported only by specific handlers documented in `../README.md`.
-- Import does not delete records.
+- Import can delete supported records when YAML is the source of truth and the record is absent from YAML.
 - Machine names are treated as identities.
 - YAML acts as the source of truth for supported create/update fields, so import can revert UI/database changes back to the exported YAML state.
 - The UI asks for confirmation before applying imports.
-- Dependency metadata is validated where available and missing managed YAML dependencies are reported as warnings.
+- Dependency metadata is validated where available and missing managed YAML dependencies are treated as import-blocking errors.
 - Suspected machine-name renames are warned and skipped.
 - Unsupported handlers report `not_implemented` instead of partially applying changes.
 

@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha30-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha31-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -20,7 +20,7 @@ The extension is intended to provide a Drupal-style configuration workflow for C
 3. Move the YAML directory between environments.
 4. Preview and import supported YAML changes into CiviCRM.
 
-The YAML directory is treated as the deployable source of truth for supported configuration types. This extension is still alpha software, so imports remain intentionally conservative.
+The YAML directory is treated as the deployable source of truth for supported configuration types. This extension is still alpha software. Import can now create, update, and delete supported records, but only after preview and explicit confirmation.
 
 ## Current UI
 
@@ -39,17 +39,17 @@ Available actions:
 
 ### Import
 
-Reviews YAML files in the sync directory and applies supported create/update changes to CiviCRM.
+Reviews YAML files in the sync directory and applies supported changes to CiviCRM.
 
 Current import behavior:
 
-- Imports are non-destructive in this alpha.
-- Missing YAML does not delete existing CiviCRM records.
-- Records that exist only in CiviCRM are left unchanged.
-- Supported handlers apply YAML as the source of truth for create/update fields, so importing can revert UI/database changes back to the last exported YAML state.
+- Supported handlers treat YAML as the source of truth.
+- Import can create records that exist in YAML but not in CiviCRM.
+- Import can update records that differ between YAML and CiviCRM.
+- Import can delete supported records that exist in CiviCRM but not in YAML.
 - The UI uses a confirmation modal before applying import changes. The user must review the warning and type `IMPORT`.
+- CiviCRM may assign a new numeric ID when a deleted record is recreated from YAML; dependencies should rely on stable machine names wherever possible.
 - Unsupported handlers are shown as not ready instead of applying partial changes.
-- If a YAML record was deleted from CiviCRM and then imported again, CiviCRM may recreate it with a new database ID. YAML matching uses stable machine names/titles where possible, not old numeric IDs.
 
 The Import tab also supports uploading a single YAML file or a ZIP archive into the sync directory before previewing changes.
 
@@ -185,18 +185,18 @@ The export manifest is written to `manifest.yml`. Its `exported_with` value is r
 
 ## Safety rules
 
-- Import does not delete records in the current alpha series.
+- Import can delete supported records that are present in CiviCRM but missing from YAML. Review the import preview before applying.
 - Machine names are treated as identities.
 - Suspected machine-name renames are warned and skipped.
-- Dependency metadata is validated where available, and missing managed YAML dependencies are reported as warnings before import.
+- Dependency metadata is validated where available. Missing managed YAML dependencies are treated as import-blocking errors to avoid broken relationships.
 - Large scalar values such as HTML message-template bodies are truncated in UI previews; the YAML and field-level diff still carry the complete value.
 - Payment processor secrets are never exported.
 - Live transactional data is never exported.
 - ZIP upload only stages YAML files under the configured sync directory.
 - SearchKit Saved Searches, SearchKit Displays, FormBuilder Afforms, and Scheduled Jobs are exported as one YAML file per item so small changes are easier to review.
 - Split item files include dependency metadata where the extension can detect it.
-- Temporary filtered exports include related dependency-sensitive config types automatically. For example, SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together because they commonly reference each other. Custom Groups and Fields can include Option Groups and Contact Types. Relationship Types can include Contact Types.
-- After a filtered export, the UI clears the temporary filter and reloads the full managed diff to avoid showing a misleading In Sync state for only the filtered subset.
+- Temporary filtered exports include related dependency-sensitive config types automatically. For example, SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together because they commonly reference each other. Custom Groups and Fields can include Option Groups and Contact Types. Relationship Types can include Contact Types. The UI warns before exporting a filtered set when dependency types will be added.
+- After a filtered export, the UI clears the temporary filter and reloads the full managed diff to avoid showing a misleading In Sync state for only the filtered subset. POST actions redirect after completion, so browser refresh does not resubmit export/import forms.
 
 ## System status integration
 

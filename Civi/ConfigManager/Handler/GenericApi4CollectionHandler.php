@@ -144,10 +144,14 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       'dry_run' => $dryRun,
       'create' => 0,
       'update' => 0,
+      'delete' => 0,
       'skip' => 0,
       'warnings' => [],
       'errors' => [],
     ];
+
+    $desiredKeys = [];
+    $identityFields = [];
 
     foreach ($this->expandFilesToRows($items, $summary) as $entry) {
       $filename = $entry['filename'];
@@ -159,6 +163,8 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       }
 
       $identityValue = (string) $row[$identityField];
+      $desiredKeys[$this->identityKey($identityField, $identityValue)] = TRUE;
+      $identityFields[$identityField] = TRUE;
       $desired = $this->cleanImportValues($row);
       $existing = $this->api4GetFirst($this->entity, [[$identityField, '=', $identityValue]], ['*']);
 
@@ -190,8 +196,56 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       }
     }
 
+    $this->deleteRecordsMissingFromYaml($desiredKeys, array_keys($identityFields), $dryRun, $summary);
+
     $summary['ok'] = empty($summary['errors']);
     return $summary;
+  }
+
+
+  private function deleteRecordsMissingFromYaml(array $desiredKeys, array $identityFields, bool $dryRun, array &$summary): void {
+    if (!$identityFields) {
+      $identityFields = array_values(array_intersect(['name', 'name_a_b', 'title'], $this->select));
+    }
+    if (!$identityFields) {
+      return;
+    }
+    $select = array_values(array_unique(array_merge(['id'], $identityFields)));
+    $existingRows = $this->api4Get($this->entity, [], $select, $this->orderBy);
+    foreach ($existingRows as $existing) {
+      $existing = (array) $existing;
+      if (empty($existing['id'])) {
+        continue;
+      }
+      $identityField = $this->getIdentityField($existing);
+      if (!$identityField) {
+        continue;
+      }
+      $identityValue = (string) $existing[$identityField];
+      if (isset($desiredKeys[$this->identityKey($identityField, $identityValue)])) {
+        continue;
+      }
+      $summary['delete']++;
+      $summary['warnings'][] = [
+        'name' => $identityValue,
+        'message' => sprintf('%s exists in CiviCRM but not in YAML and will be deleted when import is applied.', $identityValue),
+      ];
+      if (!$dryRun) {
+        try {
+          $this->api4Delete($this->entity, [['id', '=', $existing['id']]]);
+        }
+        catch (\Throwable $e) {
+          $summary['errors'][] = [
+            'name' => $identityValue,
+            'message' => 'Delete failed: ' . $e->getMessage(),
+          ];
+        }
+      }
+    }
+  }
+
+  private function identityKey(string $field, string $value): string {
+    return $field . ':' . $value;
   }
 
   private function expandFilesToRows(array $items, array &$summary): array {

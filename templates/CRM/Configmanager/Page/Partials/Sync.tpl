@@ -1,6 +1,6 @@
   {if $op eq 'sync'}
     <div class="civicfg-actions">
-      {if $canExport}<form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}">
+      {if $canExport}<form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" {if $exportDependencyTypes|@count gt 0}data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Export with Dependencies" data-civicfg-confirm-word="EXPORT" data-civicfg-confirm-button="Export" data-civicfg-confirm-message="The selected filter has related dependency types. Export will include those related YAML files too so the configuration can deploy safely."{/if}>
         <input type="hidden" name="_action" value="export_write" />
         {foreach from=$selectedTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
         <button type="submit" class="button"><span>{ts}Export{/ts}</span></button>
@@ -61,7 +61,7 @@
     {/if}
 
     <div class="civicfg-actions">
-      {if $canExport}<form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}">
+      {if $canExport}<form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" {if $exportDependencyTypes|@count gt 0}data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Export with Dependencies" data-civicfg-confirm-word="EXPORT" data-civicfg-confirm-button="Export" data-civicfg-confirm-message="The selected filter has related dependency types. Export will include those related YAML files too so the configuration can deploy safely."{/if}>
         <input type="hidden" name="_action" value="export_write" />
         {foreach from=$selectedTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
         <button type="submit" class="button"><span>{ts}Export{/ts}</span></button>
