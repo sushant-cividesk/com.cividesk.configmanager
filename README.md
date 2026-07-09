@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha29-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha30-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -32,7 +32,7 @@ Shows the current difference between active CiviCRM configuration and YAML files
 
 Available actions:
 
-- `Export` writes active CiviCRM changes to YAML.
+- `Export` writes active CiviCRM changes to YAML. If a temporary type filter is active, related dependency-sensitive types are included automatically and the filter is cleared after export so the next Synchronize view shows the full managed status.
 - `Import` opens an import preview for supported YAML-to-CiviCRM changes.
 - `Validate` checks YAML structure and handler compatibility.
 - `Diff` shows field-level details for a changed file.
@@ -74,7 +74,7 @@ Settings include:
 - Managed Types
 - Settings Allowlist
 
-Leaving Managed Types unchecked means all supported handlers are managed.
+Leaving Managed Types unchecked means all supported handlers are managed. If Managed Types is changed to a subset after YAML files already exist, the old YAML files are left on disk but ignored by status, diff, export, validate, and import until that type is enabled again. The extension does not delete those files automatically.
 
 ## Sync Directory
 
@@ -195,6 +195,8 @@ The export manifest is written to `manifest.yml`. Its `exported_with` value is r
 - ZIP upload only stages YAML files under the configured sync directory.
 - SearchKit Saved Searches, SearchKit Displays, FormBuilder Afforms, and Scheduled Jobs are exported as one YAML file per item so small changes are easier to review.
 - Split item files include dependency metadata where the extension can detect it.
+- Temporary filtered exports include related dependency-sensitive config types automatically. For example, SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together because they commonly reference each other. Custom Groups and Fields can include Option Groups and Contact Types. Relationship Types can include Contact Types.
+- After a filtered export, the UI clears the temporary filter and reloads the full managed diff to avoid showing a misleading In Sync state for only the filtered subset.
 
 ## System status integration
 

@@ -17,8 +17,9 @@ class FileTransfer {
 
   public function buildExportItems(ConfigManager $manager, array $typeFilter = []): array {
     $items = [];
+    $effectiveTypes = $manager->getEffectiveExportTypeFilter($typeFilter);
     foreach ($manager->getHandlers() as $handler) {
-      if ($typeFilter && !in_array($handler->getType(), $typeFilter, TRUE)) {
+      if ($effectiveTypes && !in_array($handler->getType(), $effectiveTypes, TRUE)) {
         continue;
       }
       try {

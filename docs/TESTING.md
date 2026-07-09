@@ -43,12 +43,13 @@ Payment Processors remain export/diff only and should not be tested as importabl
 1. Create or select a Saved Search.
 2. Create or select a Search Display for that Saved Search.
 3. Create or select a FormBuilder Afform that references the Search Display.
-4. Export all three related items.
-5. Confirm the Search Display YAML declares the Saved Search dependency.
-6. Confirm the Afform YAML declares the Search Display dependency where detectable.
-7. Remove or move one dependency YAML file in a test copy of the sync directory.
-8. Run Validate and confirm a dependency warning is shown.
-9. Restore the dependency file before import.
+4. Apply a temporary filter for only SearchKit Saved Searches and run Export.
+5. Confirm related SearchKit Displays and FormBuilder Afforms are included in the export when available, and that the filter is cleared after export.
+6. Confirm the Search Display YAML declares the Saved Search dependency.
+7. Confirm the Afform YAML declares the Search Display dependency where detectable.
+8. Remove or move one dependency YAML file in a test copy of the sync directory.
+9. Run Validate and confirm a dependency warning is shown.
+10. Restore the dependency file before import.
 
 ## Large Text Diff Test
 

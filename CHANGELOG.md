@@ -2,6 +2,14 @@
 
 All notable ZIP/test builds for `com.cividesk.configmanager` are tracked here. Other docs describe current behavior only and should reference this file instead of repeating release notes.
 
+## 0.1.0-alpha30-core
+
+- Included the alpha29 hotfixes for API4 `getFields()` metadata and Smarty undefined-key warning prevention.
+- Added dependency-aware type expansion for temporary filtered export/import operations. SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are bundled together; Custom Groups can include Option Groups and Contact Types; Relationship Types can include Contact Types.
+- Cleared temporary type filters after filtered export so the Synchronize tab shows the full managed status instead of a filtered In Sync result.
+- Updated docs to clarify the difference between temporary filters and the Settings > Managed Types scope.
+
+
 ## 0.1.0-alpha29-core
 
 - Improved Import Preview layout so each changed field shows the current CiviCRM value beside the YAML value to import.

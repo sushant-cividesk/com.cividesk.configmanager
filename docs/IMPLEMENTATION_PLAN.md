@@ -64,6 +64,14 @@ Use split item files for config types that are large, commonly edited, or depend
 
 Keep collection files for smaller stable types unless diffs become difficult to review. When adding a new split-file handler, include dependency metadata in each item file and document the dependency order here instead of duplicating release notes.
 
+Temporary filtered exports are expanded by type for known dependency-sensitive groups:
+
+- SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together.
+- Custom Groups and Fields can bring Option Groups and Contact Types.
+- Relationship Types can bring Contact Types.
+
+This is type-level expansion, not a full per-record dependency graph yet. It prevents the common broken-export case while keeping the current alpha implementation simple.
+
 ## Version maintenance
 
 Update the release version in `info.xml`. Runtime export metadata reads that version through `Civi\ConfigManager\Version`, so service code should not hard-code the alpha version. Update `CHANGELOG.md` and current-behavior docs when behavior changes.
@@ -93,7 +101,7 @@ Import remains non-destructive. Extra CiviCRM records are not removed when missi
 
 - Add round-trip tests for each handler on real CiviCRM builds.
 - Add compatibility smoke tests for Drupal, WordPress, and Standalone.
-- Expand dependency graph validation and decide which dependency warnings should become import blockers.
+- Expand dependency graph validation from type-level bundling to per-record dependency resolution, and decide which dependency warnings should become import blockers.
 - Add clearer per-handler import readiness reporting based on real-world failures.
 - Re-check whether sanitized Payment Processors should ever be importable by default.
 

@@ -3,6 +3,9 @@
       <summary>{ts}Full Archive{/ts}</summary>
       <div class="civicfg-panel-body">
         <p>{ts}Export the active CiviCRM configuration to the sync directory, or download the current sync directory as a ZIP archive.{/ts}</p>
+        {if $result.dependency_types|@count gt 0}
+          <div class="messages status no-popup">{ts}Related dependency types are included automatically in this export preview:{/ts} {foreach from=$result.dependency_types item=type}<code>{$type|escape}</code> {/foreach}</div>
+        {/if}
         <div class="civicfg-actions">
           <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}">
             <input type="hidden" name="_action" value="export_write" />
@@ -33,9 +36,9 @@
           </select>
         </div>
 
-        <div id="civicfg-single-export-empty" class="messages status no-popup"{if $singleExport} hidden="hidden"{/if}>{ts}Choose a config file to preview its YAML.{/ts}</div>
+        <div id="civicfg-single-export-empty" class="messages status no-popup"{if $singleExport.has_value or $singleExport.error} hidden="hidden"{/if}>{ts}Choose a config file to preview its YAML.{/ts}</div>
         <div id="civicfg-single-export-error" class="messages error no-popup"{if !$singleExport.error} hidden="hidden"{/if}>{if $singleExport.error}{$singleExport.error|escape}{/if}</div>
-        <div id="civicfg-single-export-preview"{if !$singleExport || $singleExport.error} hidden="hidden"{/if}>
+        <div id="civicfg-single-export-preview"{if !$singleExport.has_value or $singleExport.error} hidden="hidden"{/if}>
           <div class="civicfg-single-export-meta">
             <strong><code id="civicfg-single-export-path" class="civicfg-file-code">{if $singleExport.path}{$singleExport.path|escape}{/if}</code></strong>
             <span id="civicfg-single-export-label" class="civicfg-muted">{if $singleExport.label}{$singleExport.label|escape}{/if}</span>

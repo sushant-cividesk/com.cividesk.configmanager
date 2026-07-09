@@ -168,12 +168,90 @@ class ConfigManager {
     ];
   }
 
+  public function getEffectiveExportTypeFilter(array $typeFilter = []): array {
+    $requested = $this->normaliseTypeFilter($typeFilter);
+    if (!$requested) {
+      return [];
+    }
+
+    $available = [];
+    foreach ($this->getHandlers() as $handler) {
+      $available[$handler->getType()] = TRUE;
+    }
+
+    $expanded = [];
+    foreach ($requested as $type) {
+      if (isset($available[$type])) {
+        $expanded[$type] = TRUE;
+      }
+    }
+
+    $map = $this->getExportRelatedTypeMap();
+    $changed = TRUE;
+    while ($changed) {
+      $changed = FALSE;
+      foreach (array_keys($expanded) as $type) {
+        foreach (($map[$type] ?? []) as $relatedType) {
+          if (isset($available[$relatedType]) && !isset($expanded[$relatedType])) {
+            $expanded[$relatedType] = TRUE;
+            $changed = TRUE;
+          }
+        }
+      }
+    }
+
+    $ordered = [];
+    foreach ($this->getHandlers() as $handler) {
+      $type = $handler->getType();
+      if (isset($expanded[$type])) {
+        $ordered[] = $type;
+      }
+    }
+    return $ordered;
+  }
+
+  private function normaliseTypeFilter(array $typeFilter): array {
+    $typeFilter = array_values(array_unique(array_filter(array_map('strval', $typeFilter))));
+    if (!$typeFilter) {
+      return [];
+    }
+
+    $valid = [];
+    foreach ($this->getHandlers() as $handler) {
+      $valid[$handler->getType()] = TRUE;
+    }
+
+    return array_values(array_filter($typeFilter, fn($type) => isset($valid[$type])));
+  }
+
+  private function getExportRelatedTypeMap(): array {
+    return [
+      // A SearchKit saved search is normally deployed with its displays, and
+      // FormBuilder afforms may embed those displays. Export the set together.
+      'searchkit-saved-searches' => ['searchkit-displays', 'formbuilder-afforms'],
+      'searchkit-displays' => ['searchkit-saved-searches', 'formbuilder-afforms'],
+      'formbuilder-afforms' => ['searchkit-displays', 'searchkit-saved-searches'],
+
+      // Custom fields can depend on option groups and the contact type scope.
+      'custom-data' => ['option-groups', 'contact-types'],
+
+      // Relationship types can depend on contact/sub-contact types.
+      'relationship-types' => ['contact-types'],
+    ];
+  }
+
   public function export(bool $dryRun = TRUE, array $typeFilter = []): array {
     $storage = new YamlFileStorage($this->getSyncDir());
+    $requestedTypes = $this->normaliseTypeFilter($typeFilter);
+    $effectiveTypes = $this->getEffectiveExportTypeFilter($requestedTypes);
+    $dependencyTypes = $requestedTypes ? array_values(array_diff($effectiveTypes, $requestedTypes)) : [];
     $summary = [
       'ok' => TRUE,
       'dry_run' => $dryRun,
       'sync_dir' => $storage->getRoot(),
+      'requested_types' => $requestedTypes,
+      'effective_types' => $effectiveTypes,
+      'dependency_types' => $dependencyTypes,
       'written' => [],
       'planned' => [],
       'skipped' => [],
@@ -192,7 +270,7 @@ class ConfigManager {
     }
 
     foreach ($this->getHandlers() as $handler) {
-      if ($typeFilter && !in_array($handler->getType(), $typeFilter, TRUE)) {
+      if ($effectiveTypes && !in_array($handler->getType(), $effectiveTypes, TRUE)) {
         continue;
       }
       try {
@@ -367,7 +445,8 @@ class ConfigManager {
 
   public function import(bool $dryRun = TRUE, bool $yes = FALSE, array $typeFilter = []): array {
     $storage = new YamlFileStorage($this->getSyncDir());
-    $validation = $this->validate($typeFilter);
+    $effectiveTypes = $this->getEffectiveExportTypeFilter($typeFilter);
+    $validation = $this->validate($effectiveTypes);
     if (!$validation['ok']) {
       return [
         'ok' => FALSE,
@@ -378,7 +457,7 @@ class ConfigManager {
     }
     $result = ['ok' => TRUE, 'dry_run' => $dryRun, 'applied' => !$dryRun && $yes, 'items' => []];
     foreach ($this->getHandlers() as $handler) {
-      if ($typeFilter && !in_array($handler->getType(), $typeFilter, TRUE)) {
+      if ($effectiveTypes && !in_array($handler->getType(), $effectiveTypes, TRUE)) {
         continue;
       }
       $files = $storage->readDirectory($handler->getDirectory());

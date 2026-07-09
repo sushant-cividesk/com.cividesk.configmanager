@@ -65,14 +65,23 @@ class MainPage {
         \CRM_Utils_System::redirect(\CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=settings'));
       }
       elseif ($postAction === 'export_write') {
-        $exportResult = $this->manager->export(FALSE, $types);
+        $requestedTypes = $types;
+        $exportResult = $this->manager->export(FALSE, $requestedTypes);
         $written = !empty($exportResult['written']) ? count($exportResult['written']) : 0;
         $skipped = !empty($exportResult['skipped']) ? count($exportResult['skipped']) : 0;
+        $dependencyTypes = (array) ($exportResult['dependency_types'] ?? []);
         $notice = $written
           ? ts('Export complete. %1 YAML file(s) updated. %2 unchanged file(s) skipped.', [1 => $written, 2 => $skipped])
           : ts('Nothing to export. YAML files already match active CiviCRM configuration.');
+        if ($dependencyTypes) {
+          $notice .= ' ' . ts('Related dependency types were included automatically: %1.', [1 => implode(', ', $dependencyTypes)]);
+        }
+        if ($requestedTypes) {
+          $notice .= ' ' . ts('The temporary filter was cleared so the Synchronize tab now shows the full managed status.');
+        }
+        $types = [];
         $op = 'sync';
-        $result = $this->manager->diff($types);
+        $result = $this->manager->diff([]);
       }
       elseif ($postAction === 'import_apply') {
         $importTypes = $this->request->getSelectedTypes();
@@ -274,11 +283,50 @@ class MainPage {
     if ($selectedExportItem !== '') {
       try {
         $singleExport = $this->files->loadSingleExport($this->manager, $selectedExportItem);
+        $singleExport['has_value'] = TRUE;
       }
       catch (Exception $e) {
-        $singleExport = ['error' => $e->getMessage()];
+        $singleExport = ['error' => $e->getMessage(), 'has_value' => FALSE];
       }
     }
+
+    $allTypeKeys = array_map(fn($row) => (string) $row['type'], $allTypes);
+    $selectedTypesMap = array_fill_keys($allTypeKeys, FALSE);
+    foreach ($types as $type) {
+      $selectedTypesMap[(string) $type] = TRUE;
+    }
+    $enabledTypesMap = array_fill_keys($allTypeKeys, FALSE);
+    foreach ($enabledTypes as $type) {
+      $enabledTypesMap[(string) $type] = TRUE;
+    }
+    $importApplyTypesMap = array_fill_keys($allTypeKeys, FALSE);
+    foreach ($importApplyTypes as $type) {
+      $importApplyTypesMap[(string) $type] = TRUE;
+    }
+    $result += [
+      'error' => NULL,
+      'errors' => [],
+      'items' => [],
+      'planned' => [],
+      'written' => [],
+      'skipped' => [],
+      'requested_types' => [],
+      'effective_types' => [],
+      'dependency_types' => [],
+    ];
+    $singleExportDefaults = [
+      'error' => NULL,
+      'has_value' => FALSE,
+      'key' => '',
+      'type' => '',
+      'label' => '',
+      'directory' => '',
+      'file' => '',
+      'path' => '',
+      'yaml' => '',
+      'download_url' => '',
+    ];
+    $singleExport = is_array($singleExport) ? ($singleExport + $singleExportDefaults) : $singleExportDefaults;
 
     $assetLoader = new AssetLoader();
     $assetLoader->addResources();
@@ -293,9 +341,9 @@ class MainPage {
     $this->page->assign('status', $status);
     $this->page->assign('allTypes', $allTypes);
     $this->page->assign('selectedTypes', $types);
-    $this->page->assign('selectedTypesMap', array_fill_keys($types, TRUE));
+    $this->page->assign('selectedTypesMap', $selectedTypesMap);
     $this->page->assign('enabledTypes', $enabledTypes);
-    $this->page->assign('enabledTypesMap', array_fill_keys($enabledTypes, TRUE));
+    $this->page->assign('enabledTypesMap', $enabledTypesMap);
     $this->page->assign('settingsAllowlist', implode("\n", $settingsAllowlist));
     $codeDefinedSyncDir = $this->getCodeDefinedSyncDir();
     $savedSyncDir = trim((string) \Civi::settings()->get('civicfg_sync_dir'));
@@ -312,7 +360,7 @@ class MainPage {
     $this->page->assign('diffFiles', $diffFiles);
     $this->page->assign('importPlan', $importPlan);
     $this->page->assign('importApplyTypes', $importApplyTypes);
-    $this->page->assign('importApplyTypesMap', array_fill_keys($importApplyTypes, TRUE));
+    $this->page->assign('importApplyTypesMap', $importApplyTypesMap);
     $this->page->assign('exportItems', $exportItems);
     $this->page->assign('selectedExportItem', $selectedExportItem);
     $this->page->assign('singleExport', $singleExport);
