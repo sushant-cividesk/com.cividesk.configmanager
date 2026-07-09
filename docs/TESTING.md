@@ -76,3 +76,8 @@ For each CMS, verify UI access, API4 commands, sync-directory resolution, export
 ## Recreate From YAML Test
 
 For handlers that support create/update import, delete a non-critical test record from CiviCRM after export and then import it from YAML. Confirm the record is recreated with the YAML values. Note that CiviCRM may assign a new numeric database ID; dependency checks should rely on stable names/keys where available.
+
+
+## Alpha33 validation note
+
+Option group value validation allows CiviCRM core data where option value names may be reused with different stored values. Custom field option group references should be exported by `option_group_name` where possible so YAML is portable between environments; legacy numeric `option_group_id` YAML remains accepted for compatibility.

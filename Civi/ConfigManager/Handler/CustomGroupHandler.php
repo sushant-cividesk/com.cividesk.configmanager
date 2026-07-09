@@ -15,6 +15,13 @@ class CustomGroupHandler extends AbstractHandler {
       unset($group['id']);
       foreach ($fields as &$field) {
         unset($field['id'], $field['custom_group_id']);
+        if (!empty($field['option_group_id']) && is_numeric($field['option_group_id'])) {
+          $optionGroup = $this->api4GetFirst('OptionGroup', [['id', '=', (int) $field['option_group_id']]], ['name']);
+          if (!empty($optionGroup['name'])) {
+            $field['option_group_name'] = $optionGroup['name'];
+            unset($field['option_group_id']);
+          }
+        }
       }
       $files[] = [
         'filename' => 'groups/' . $this->safeName($group['name']) . '.yml',
@@ -48,9 +55,9 @@ class CustomGroupHandler extends AbstractHandler {
         if (empty($field['name'])) {
           $errors[] = ['file' => $filename, 'message' => 'Custom field is missing name.'];
         }
-        if (!empty($field['option_group_id']) && is_numeric($field['option_group_id'])) {
-          $warnings[] = ['file' => $filename, 'message' => 'Custom field ' . ($field['name'] ?? '') . ' references option_group_id by numeric id. Re-export after option groups are stable.'];
-        }
+        // Legacy YAML from earlier alpha builds may contain numeric
+        // option_group_id. Keep validation quiet for compatibility; new exports
+        // write option_group_name and dependency metadata instead.
       }
     }
     return ['type' => $this->getType(), 'valid' => empty($errors), 'warnings' => $warnings, 'errors' => $errors, 'count' => count($items)];
@@ -98,6 +105,7 @@ class CustomGroupHandler extends AbstractHandler {
 
         foreach (($file['fields'] ?? []) as $field) {
           $field = $this->cleanValues((array) $field);
+          $this->resolveFieldOptionGroup($field, $filename, $summary);
           if (empty($field['name'])) {
             $summary['errors'][] = ['file' => $filename, 'message' => 'Custom field is missing name.'];
             continue;
@@ -138,18 +146,45 @@ class CustomGroupHandler extends AbstractHandler {
 
   private function dependenciesForGroup(array $group, array $fields): array {
     $dependencies = [];
+    $seen = [];
     foreach ($fields as $field) {
       $field = (array) $field;
-      if (!empty($field['option_group_id'])) {
+      $optionGroupName = (string) ($field['option_group_name'] ?? '');
+      if ($optionGroupName === '' && !empty($field['option_group_id']) && is_numeric($field['option_group_id'])) {
+        $optionGroup = $this->api4GetFirst('OptionGroup', [['id', '=', (int) $field['option_group_id']]], ['name']);
+        $optionGroupName = (string) ($optionGroup['name'] ?? '');
+      }
+      if ($optionGroupName !== '' && empty($seen[$optionGroupName])) {
+        $seen[$optionGroupName] = TRUE;
         $dependencies[] = [
           'type' => 'option-groups',
           'entity' => 'OptionGroup',
-          'id' => $field['option_group_id'],
+          'name' => $optionGroupName,
           'reason' => 'Custom field uses this option group for choices.',
         ];
       }
     }
     return $dependencies;
+  }
+
+  private function resolveFieldOptionGroup(array &$field, string $filename, array &$summary): void {
+    if (!empty($field['option_group_name'])) {
+      $optionGroupName = (string) $field['option_group_name'];
+      $optionGroup = $this->api4GetFirst('OptionGroup', [['name', '=', $optionGroupName]], ['id', 'name']);
+      if (empty($optionGroup['id'])) {
+        throw new \RuntimeException('Custom field ' . ($field['name'] ?? '') . ' requires missing option group: ' . $optionGroupName . '. Import option groups first or restore the dependency YAML file.');
+      }
+      $field['option_group_id'] = $optionGroup['id'];
+      unset($field['option_group_name']);
+      return;
+    }
+
+    if (!empty($field['option_group_id']) && is_numeric($field['option_group_id'])) {
+      $summary['warnings'][] = [
+        'file' => $filename,
+        'message' => 'Custom field ' . ($field['name'] ?? '') . ' still uses numeric option_group_id. Re-export to make this environment-independent.',
+      ];
+    }
   }
 
   private function safeName(string $name): string {

@@ -163,3 +163,8 @@ There is no required Node/npm build step in the current alpha.
 `civicfg_sync_dir` can be UI-managed or code-owned.
 
 When defined in `civicrm.settings.php`, the UI treats the sync directory as environment-owned configuration and locks the field to avoid accidental changes.
+
+
+## Alpha33 validation note
+
+Option group value validation allows CiviCRM core data where option value names may be reused with different stored values. Custom field option group references should be exported by `option_group_name` where possible so YAML is portable between environments; legacy numeric `option_group_id` YAML remains accepted for compatibility.

@@ -14,11 +14,9 @@
           </form>
           <a class="button" href="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=download-archive'}"><span>{ts}Download ZIP{/ts}</span></a>
         </div>
-        {if $result.planned}
-          <div class="civicfg-list"><ul>{foreach from=$result.planned item=file}<li><code>{$file|escape}</code></li>{/foreach}</ul></div>
-        {else}
-          <div class="messages status no-popup">{ts}No export changes for the selected types.{/ts}</div>
-        {/if}
+        <div class="messages status no-popup">
+          {ts}Use Export to write current CiviCRM configuration to the sync directory. Use Download ZIP to download the full current sync directory archive.{/ts}
+        </div>
       </div>
     </details>
 

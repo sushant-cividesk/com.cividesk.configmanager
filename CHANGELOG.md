@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha33-core
+
+- Fixed validation noise for core option groups where CiviCRM legitimately reuses option value names with different stored values.
+- Updated option value validation/import identity handling so duplicate names are matched by name plus value where needed instead of failing validation.
+- Updated Custom Groups and Fields export to write option group references as stable `option_group_name` values where possible.
+- Kept legacy custom field YAML with numeric `option_group_id` validation-compatible so older alpha exports do not fail validation unnecessarily.
+- Updated docs to clarify option value identity handling and environment-safe custom field option group dependencies.
+
 ## 0.1.0-alpha32-core
 
 - Fixed the export dependency confirmation modal so export asks for `EXPORT` and shows export-specific warning text instead of import text.

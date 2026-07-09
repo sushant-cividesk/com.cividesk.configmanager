@@ -130,3 +130,8 @@ The CiviCRM status report should warn when:
 - CiviCRM and YAML have pending differences.
 
 When there are no differences, the status check may show an informational in-sync notice.
+
+
+## Alpha33 validation note
+
+Option group value validation allows CiviCRM core data where option value names may be reused with different stored values. Custom field option group references should be exported by `option_group_name` where possible so YAML is portable between environments; legacy numeric `option_group_id` YAML remains accepted for compatibility.

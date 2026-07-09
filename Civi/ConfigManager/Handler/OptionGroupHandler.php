@@ -58,7 +58,7 @@ class OptionGroupHandler extends AbstractHandler {
       }
 
       $names = [];
-      $values = [];
+      $composite = [];
       foreach (($item['values'] ?? []) as $index => $value) {
         $name = (string) ($value['name'] ?? '');
         $optionValue = array_key_exists('value', $value) ? (string) $value['value'] : '';
@@ -69,22 +69,21 @@ class OptionGroupHandler extends AbstractHandler {
           ];
           continue;
         }
-        if (isset($names[$name])) {
+
+        $compositeKey = $name . "\0" . $optionValue;
+        if (isset($composite[$compositeKey])) {
           $errors[] = [
             'file' => $filename,
-            'message' => 'Duplicate option value machine name: ' . $name,
+            'message' => 'Duplicate option value entry: ' . $name . ' / ' . $optionValue,
           ];
+          continue;
         }
+        $composite[$compositeKey] = TRUE;
+
+        // Some core CiviCRM option groups reuse the display-like option
+        // value name while keeping distinct values. That is valid source data;
+        // import handles those rows by matching name + value where needed.
         $names[$name] = TRUE;
-        if ($optionValue !== '') {
-          if (isset($values[$optionValue]) && $values[$optionValue] !== $name) {
-            $warnings[] = [
-              'file' => $filename,
-              'message' => 'Two option values use the same value "' . $optionValue . '" (' . $values[$optionValue] . ' and ' . $name . '). This may indicate a machine-name rename and may not import safely.',
-            ];
-          }
-          $values[$optionValue] = $name;
-        }
       }
     }
     return [
@@ -146,25 +145,30 @@ class OptionGroupHandler extends AbstractHandler {
           }
         }
 
-        $desiredValueNames = [];
-        foreach (($item['values'] ?? []) as $value) {
+        $yamlValues = (array) ($item['values'] ?? []);
+        $duplicateValueNames = $this->duplicateOptionValueNames($yamlValues);
+        $desiredValueKeys = [];
+        foreach ($yamlValues as $value) {
           $valueName = (string) ($value['name'] ?? '');
           if ($valueName === '') {
             $summary['errors'][] = ['file' => $filename, 'message' => 'Option value is missing name.'];
             continue;
           }
-          $desiredValueNames[$valueName] = TRUE;
-
           $desiredValue = $this->cleanOptionValueValues($value);
+          $desiredValueKeys[$this->optionValueIdentityKey($desiredValue, $duplicateValueNames)] = TRUE;
           $existingValue = NULL;
           $machineNameConflict = NULL;
           if ($existingGroup) {
-            $existingValue = $this->api4GetFirst('OptionValue', [
+            $where = [
               ['option_group_id', '=', $existingGroup['id']],
               ['name', '=', $valueName],
-            ], ['*']);
+            ];
+            if (isset($duplicateValueNames[$valueName]) && array_key_exists('value', $desiredValue) && $desiredValue['value'] !== NULL && $desiredValue['value'] !== '') {
+              $where[] = ['value', '=', (string) $desiredValue['value']];
+            }
+            $existingValue = $this->api4GetFirst('OptionValue', $where, ['*']);
 
-            if (!$existingValue && array_key_exists('value', $desiredValue) && $desiredValue['value'] !== NULL && $desiredValue['value'] !== '') {
+            if (!$existingValue && !isset($duplicateValueNames[$valueName]) && array_key_exists('value', $desiredValue) && $desiredValue['value'] !== NULL && $desiredValue['value'] !== '') {
               $machineNameConflict = $this->api4GetFirst('OptionValue', [
                 ['option_group_id', '=', $existingGroup['id']],
                 ['value', '=', (string) $desiredValue['value']],
@@ -206,7 +210,7 @@ class OptionGroupHandler extends AbstractHandler {
         }
 
         if ($existingGroup) {
-          $this->warnExtraOptionValues($existingGroup, $desiredValueNames, $filename, $summary);
+          $this->warnExtraOptionValues($existingGroup, $desiredValueKeys, $duplicateValueNames, $filename, $summary);
         }
       }
       catch (\Throwable $e) {
@@ -222,7 +226,7 @@ class OptionGroupHandler extends AbstractHandler {
     return $summary;
   }
 
-  private function warnExtraOptionValues(array $existingGroup, array $desiredValueNames, string $filename, array &$summary): void {
+  private function warnExtraOptionValues(array $existingGroup, array $desiredValueKeys, array $duplicateValueNames, string $filename, array &$summary): void {
     if (empty($existingGroup['id'])) {
       return;
     }
@@ -233,7 +237,10 @@ class OptionGroupHandler extends AbstractHandler {
 
     foreach ($existingValues as $existingValue) {
       $existingName = (string) ($existingValue['name'] ?? '');
-      if ($existingName === '' || isset($desiredValueNames[$existingName])) {
+      if ($existingName === '') {
+        continue;
+      }
+      if (isset($desiredValueKeys[$this->optionValueIdentityKey($existingValue, $duplicateValueNames)])) {
         continue;
       }
 
@@ -243,6 +250,26 @@ class OptionGroupHandler extends AbstractHandler {
         'message' => 'Option value exists in CiviCRM but not in YAML. It was left unchanged by this handler; delete support for individual option values is still conservative.',
       ];
     }
+  }
+
+  private function duplicateOptionValueNames(array $values): array {
+    $counts = [];
+    foreach ($values as $value) {
+      $name = (string) (($value['name'] ?? ''));
+      if ($name === '') {
+        continue;
+      }
+      $counts[$name] = ($counts[$name] ?? 0) + 1;
+    }
+    return array_filter($counts, static fn($count) => $count > 1);
+  }
+
+  private function optionValueIdentityKey(array $value, array $duplicateValueNames): string {
+    $name = (string) (($value['name'] ?? ''));
+    if (isset($duplicateValueNames[$name])) {
+      return $name . '::' . (string) (($value['value'] ?? ''));
+    }
+    return $name;
   }
 
   protected function desiredDiffers(array $existing, array $desired): bool {

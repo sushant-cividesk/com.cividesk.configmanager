@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha32-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha33-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -195,6 +195,8 @@ The export manifest is written to `manifest.yml`. Its `exported_with` value is r
 - ZIP upload only stages YAML files under the configured sync directory.
 - SearchKit Saved Searches, SearchKit Displays, FormBuilder Afforms, and Scheduled Jobs are exported as one YAML file per item so small changes are easier to review.
 - Split item files include dependency metadata where the extension can detect it. SearchDisplay files declare their SavedSearch dependency; SavedSearch files declare related SearchDisplays; Afform files declare referenced SearchKit displays where detectable.
+- Custom field exports store `option_group_name` instead of numeric `option_group_id` where possible, so YAML is safer across environments. Legacy YAML with numeric option group IDs is still accepted during validation/import.
+- Option values are validated using the full option value entry, not just the `name` field, because some core CiviCRM option groups legitimately reuse option value names with different stored values.
 - Temporary filtered exports include related dependency-sensitive config types automatically. For example, SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together because they commonly reference each other. Custom Groups and Fields can include Option Groups and Contact Types. Relationship Types can include Contact Types. The UI warns before exporting a filtered set when dependency types will be added, and the confirmation uses `EXPORT` to distinguish it from destructive imports.
 - After a filtered export, the UI clears the temporary filter and reloads the full managed diff to avoid showing a misleading In Sync state for only the filtered subset. POST actions redirect after completion, so browser refresh does not resubmit export/import forms.
 
