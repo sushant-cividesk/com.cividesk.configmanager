@@ -14,8 +14,8 @@
                 {foreach from=$file.rows item=row}
                   <tr>
                     <td><strong>{$row.label|escape}</strong><br /><code>{$row.path|escape}</code></td>
-                    <td class="civicfg-diff-old"><div class="civicfg-diff-value">{$row.old|escape}</div></td>
-                    <td class="civicfg-diff-new"><div class="civicfg-diff-value">{$row.new|escape}</div></td>
+                    <td class="civicfg-diff-old"><div class="civicfg-diff-value">{$row.old_html nofilter}</div></td>
+                    <td class="civicfg-diff-new"><div class="civicfg-diff-value">{$row.new_html nofilter}</div></td>
                   </tr>
                 {/foreach}
               </tbody>

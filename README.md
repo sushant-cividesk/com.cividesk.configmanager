@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha28-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha29-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -47,8 +47,9 @@ Current import behavior:
 - Missing YAML does not delete existing CiviCRM records.
 - Records that exist only in CiviCRM are left unchanged.
 - Supported handlers apply YAML as the source of truth for create/update fields, so importing can revert UI/database changes back to the last exported YAML state.
-- The UI asks for confirmation before applying import changes.
+- The UI uses a confirmation modal before applying import changes. The user must review the warning and type `IMPORT`.
 - Unsupported handlers are shown as not ready instead of applying partial changes.
+- If a YAML record was deleted from CiviCRM and then imported again, CiviCRM may recreate it with a new database ID. YAML matching uses stable machine names/titles where possible, not old numeric IDs.
 
 The Import tab also supports uploading a single YAML file or a ZIP archive into the sync directory before previewing changes.
 

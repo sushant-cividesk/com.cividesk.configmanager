@@ -2,6 +2,15 @@
 
 All notable ZIP/test builds for `com.cividesk.configmanager` are tracked here. Other docs describe current behavior only and should reference this file instead of repeating release notes.
 
+## 0.1.0-alpha29-core
+
+- Improved Import Preview layout so each changed field shows the current CiviCRM value beside the YAML value to import.
+- Added focused large-text previews with highlighted changed text for message-template HTML/text and other long scalar values.
+- Updated modal diff rows to highlight the changed substring instead of showing only the beginning of long content.
+- Replaced the browser confirm dialog with an in-page confirmation modal that requires review acknowledgement and typing `IMPORT` before applying YAML changes.
+- Documented that recreating a deleted CiviCRM record from YAML can create a new database ID, so dependency-safe imports should rely on stable machine names where available.
+- Updated current-behavior docs for the safer import confirmation and focused diff review workflow.
+
 ## 0.1.0-alpha28-core
 
 - Added create/update import support for Message Templates, CiviCRM Settings Allowlist, Custom Groups and Fields, and Financial Types.

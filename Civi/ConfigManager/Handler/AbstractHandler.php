@@ -286,12 +286,64 @@ abstract class AbstractHandler implements HandlerInterface {
         $diff[] = '- ' . $path . ': ' . $this->formatDiffValue($change['old'] ?? NULL);
       }
       else {
-        $diff[] = '- ' . $path . ': ' . $this->formatDiffValue($change['old'] ?? NULL);
-        $diff[] = '+ ' . $path . ': ' . $this->formatDiffValue($change['new'] ?? NULL);
+        $old = $change['old'] ?? NULL;
+        $new = $change['new'] ?? NULL;
+        if (is_string($old) && is_string($new) && ($this->isLargeText($old) || $this->isLargeText($new))) {
+          foreach ($this->formatFocusedTextDiff($path, $old, $new) as $line) {
+            $diff[] = $line;
+          }
+        }
+        else {
+          $diff[] = '- ' . $path . ': ' . $this->formatDiffValue($old);
+          $diff[] = '+ ' . $path . ': ' . $this->formatDiffValue($new);
+        }
       }
       $shown++;
     }
     return implode("\n", $diff);
+  }
+
+  protected function isLargeText(string $value): bool {
+    return strlen($value) > 800 || substr_count($value, "\n") > 12;
+  }
+
+  protected function formatFocusedTextDiff(string $path, string $old, string $new): array {
+    [$oldStart, $oldEnd, $newStart, $newEnd] = $this->changedRanges($old, $new);
+    $oldExcerpt = $this->excerptForDiff($old, $oldStart, $oldEnd);
+    $newExcerpt = $this->excerptForDiff($new, $newStart, $newEnd);
+    return [
+      '- ' . $path . ': ' . $oldExcerpt,
+      '+ ' . $path . ': ' . $newExcerpt,
+    ];
+  }
+
+  protected function excerptForDiff(string $value, int $start, int $end, int $context = 240): string {
+    $from = max(0, $start - $context);
+    $to = min(strlen($value), $end + $context);
+    $excerpt = substr($value, $from, max(0, $to - $from));
+    $prefix = $from > 0 ? "...\n" : '';
+    $suffix = $to < strlen($value) ? "\n..." : '';
+    if ($excerpt === '') {
+      return '[empty at changed position]';
+    }
+    return $prefix . $excerpt . $suffix;
+  }
+
+  protected function changedRanges(string $old, string $new): array {
+    $oldLen = strlen($old);
+    $newLen = strlen($new);
+    $start = 0;
+    $maxStart = min($oldLen, $newLen);
+    while ($start < $maxStart && $old[$start] === $new[$start]) {
+      $start++;
+    }
+    $oldEnd = $oldLen;
+    $newEnd = $newLen;
+    while ($oldEnd > $start && $newEnd > $start && $old[$oldEnd - 1] === $new[$newEnd - 1]) {
+      $oldEnd--;
+      $newEnd--;
+    }
+    return [$start, $oldEnd, $start, $newEnd];
   }
 
   protected function formatDiffValue($value): string {

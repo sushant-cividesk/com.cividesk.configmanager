@@ -117,8 +117,10 @@ class Presenter {
           $file['rows'][] = [
             'label' => $this->humanizeChangePath((string) ($change['path'] ?? 'value')),
             'path' => (string) ($change['path'] ?? 'value'),
-            'old' => $this->formatChangeValue($change['old'] ?? NULL),
-            'new' => $this->formatChangeValue($change['new'] ?? NULL),
+            'old' => $this->formatChangeValue($change['old'] ?? NULL, $change['new'] ?? NULL),
+            'new' => $this->formatChangeValue($change['new'] ?? NULL, $change['old'] ?? NULL),
+            'old_html' => $this->formatChangeValueHtml($change['old'] ?? NULL, $change['new'] ?? NULL),
+            'new_html' => $this->formatChangeValueHtml($change['new'] ?? NULL, $change['old'] ?? NULL),
             'type' => (string) ($change['type'] ?? 'changed'),
           ];
         }
@@ -283,7 +285,7 @@ class Presenter {
     return str_replace(['.', '>'], [' > ', '›'], $label);
   }
 
-  private function formatChangeValue($value): string {
+  private function formatChangeValue($value, $other = NULL): string {
     if ($value === NULL || $value === '') {
       return '—';
     }
@@ -303,14 +305,25 @@ class Presenter {
       return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
     $value = (string) $value;
-    return $this->truncateLongValue($value);
+    return $this->truncateLongValue($value, $other);
   }
 
-  private function truncateLongValue(string $value): string {
+  private function formatChangeValueHtml($value, $other = NULL): string {
+    $text = $this->formatChangeValue($value, $other);
+    if (!is_string($value) || !is_string($other) || $value === $other || strlen($value) < 200) {
+      return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    return $this->highlightChangedText($value, $other);
+  }
+
+  private function truncateLongValue(string $value, $other = NULL): string {
     $value = str_replace(["\r\n", "\r"], "\n", $value);
     $lines = explode("\n", $value);
     $maxLines = 18;
     $maxChars = 1800;
+    if (is_string($other) && $other !== '' && $value !== $other && (count($lines) > $maxLines || strlen($value) > $maxChars)) {
+      return $this->focusedTextExcerpt($value, $other);
+    }
     if (count($lines) > $maxLines) {
       $value = implode("\n", array_slice($lines, 0, $maxLines)) . "\n... (preview truncated; use Show Diff Text or open the YAML file for full content)";
     }
@@ -319,4 +332,60 @@ class Presenter {
     }
     return $value;
   }
+
+  private function focusedTextExcerpt(string $value, string $other, int $context = 220): string {
+    [$start, $endValue] = $this->changedRange($value, $other);
+    $from = max(0, $start - $context);
+    $length = min(strlen($value), $endValue + $context) - $from;
+    $excerpt = substr($value, $from, $length);
+    $prefix = $from > 0 ? "...\n" : '';
+    $suffix = ($from + $length) < strlen($value) ? "\n..." : '';
+    if ($excerpt === '') {
+      return '[empty at changed position]';
+    }
+    return $prefix . $excerpt . $suffix;
+  }
+
+  private function highlightChangedText(string $value, string $other, int $context = 220): string {
+    [$start, $endValue] = $this->changedRange($value, $other);
+    $from = max(0, $start - $context);
+    $to = min(strlen($value), $endValue + $context);
+    $before = substr($value, $from, $start - $from);
+    $changed = substr($value, $start, max(0, $endValue - $start));
+    $after = substr($value, $endValue, $to - $endValue);
+    $html = '';
+    if ($from > 0) {
+      $html .= htmlspecialchars("...\n", ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    $html .= htmlspecialchars($before, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    if ($changed === '') {
+      $html .= '<mark class="civicfg-diff-empty">[missing here]</mark>';
+    }
+    else {
+      $html .= '<mark>' . htmlspecialchars($changed, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</mark>';
+    }
+    $html .= htmlspecialchars($after, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    if ($to < strlen($value)) {
+      $html .= htmlspecialchars("\n...", ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    return $html;
+  }
+
+  private function changedRange(string $value, string $other): array {
+    $valueLen = strlen($value);
+    $otherLen = strlen($other);
+    $start = 0;
+    $maxStart = min($valueLen, $otherLen);
+    while ($start < $maxStart && $value[$start] === $other[$start]) {
+      $start++;
+    }
+    $valueEnd = $valueLen;
+    $otherEnd = $otherLen;
+    while ($valueEnd > $start && $otherEnd > $start && $value[$valueEnd - 1] === $other[$otherEnd - 1]) {
+      $valueEnd--;
+      $otherEnd--;
+    }
+    return [$start, $valueEnd];
+  }
 }
+

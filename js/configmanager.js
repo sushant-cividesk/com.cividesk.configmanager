@@ -30,12 +30,73 @@
     });
 
 
-    document.querySelectorAll('.crm-configmanager-block form[data-civicfg-confirm]').forEach(function(form) {
+    function ensureConfirmModal() {
+      var existing = document.getElementById('civicfg-confirm-modal');
+      if (existing) { return existing; }
+      var modal = document.createElement('div');
+      modal.id = 'civicfg-confirm-modal';
+      modal.className = 'civicfg-modal';
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+      modal.innerHTML = '' +
+        '<div class="civicfg-modal-box civicfg-confirm-box" role="dialog" aria-modal="true" aria-labelledby="civicfg-confirm-title">' +
+          '<div class="civicfg-modal-header"><strong id="civicfg-confirm-title">Confirm import</strong><button type="button" class="civicfg-close" data-civicfg-confirm-cancel="1" aria-label="Close">×</button></div>' +
+          '<div class="civicfg-modal-body">' +
+            '<p id="civicfg-confirm-message"></p>' +
+            '<div class="messages warning no-popup">Import uses YAML as the source of truth. Existing CiviCRM records may be updated or recreated with new database IDs. Records only in CiviCRM are not deleted in this alpha.</div>' +
+            '<label class="civicfg-confirm-check"><input type="checkbox" id="civicfg-confirm-reviewed" /> I reviewed the changed files and understand this can revert active CiviCRM changes.</label>' +
+            '<label class="civicfg-confirm-label" for="civicfg-confirm-text">Type IMPORT to continue</label>' +
+            '<input type="text" id="civicfg-confirm-text" autocomplete="off" />' +
+            '<div class="civicfg-actions"><button type="button" class="button" data-civicfg-confirm-apply="1" disabled><span>Import</span></button><button type="button" class="button" data-civicfg-confirm-cancel="1"><span>Cancel</span></button></div>' +
+          '</div>' +
+        '</div>';
+      var host = document.querySelector('.crm-configmanager-block') || document.body;
+      host.appendChild(modal);
+      return modal;
+    }
+
+    function closeConfirmModal(modal) {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      modal.hidden = true;
+      modal._civicfgForm = null;
+    }
+
+    document.querySelectorAll('.crm-configmanager-block form[data-civicfg-confirm-modal]').forEach(function(form) {
       form.addEventListener('submit', function(ev) {
-        var message = form.getAttribute('data-civicfg-confirm') || 'Import will update active CiviCRM configuration from YAML. Continue?';
-        if (!window.confirm(message)) {
-          ev.preventDefault();
+        if (form.getAttribute('data-civicfg-confirmed') === '1') {
+          form.removeAttribute('data-civicfg-confirmed');
+          return;
         }
+        ev.preventDefault();
+        var modal = ensureConfirmModal();
+        var title = form.getAttribute('data-civicfg-confirm-title') || 'Confirm import';
+        var message = form.getAttribute('data-civicfg-confirm-message') || 'Import will update active CiviCRM configuration from YAML.';
+        modal._civicfgForm = form;
+        modal.querySelector('#civicfg-confirm-title').textContent = title;
+        modal.querySelector('#civicfg-confirm-message').textContent = message;
+        var reviewed = modal.querySelector('#civicfg-confirm-reviewed');
+        var text = modal.querySelector('#civicfg-confirm-text');
+        var apply = modal.querySelector('[data-civicfg-confirm-apply]');
+        reviewed.checked = false;
+        text.value = '';
+        apply.disabled = true;
+        function refresh() { apply.disabled = !(reviewed.checked && text.value === 'IMPORT'); }
+        reviewed.onchange = refresh;
+        text.oninput = refresh;
+        modal.querySelectorAll('[data-civicfg-confirm-cancel]').forEach(function(btn) { btn.onclick = function() { closeConfirmModal(modal); }; });
+        apply.onclick = function() {
+          var target = modal._civicfgForm;
+          closeConfirmModal(modal);
+          if (target) {
+            target.setAttribute('data-civicfg-confirmed', '1');
+            target.submit();
+          }
+        };
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('is-open');
+        text.focus();
       });
     });
 

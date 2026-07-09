@@ -10,7 +10,7 @@
         <div class="civicfg-panel-body">
           <div class="civicfg-actions">
             {if $canImport and $importApplyTypes|@count gt 0}
-              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm="Import will update active CiviCRM configuration from YAML. This can revert changes made in the UI or database. Continue?">
+              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Import YAML to CiviCRM" data-civicfg-confirm-message="Import will update active CiviCRM configuration from YAML. This can revert changes made in the UI or database. Continue only after reviewing the changed files.">
                 <input type="hidden" name="_action" value="import_apply" />
                 {foreach from=$importApplyTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
                 <button type="submit" class="button"><span>{ts}Import{/ts}</span></button>
@@ -30,13 +30,13 @@
                 </div>
                 {if $item.note}<div class="messages warning no-popup">{$item.note|escape}</div>{/if}
                 {if $item.rows}
-                  <div class="civicfg-mini-grid">
+                  <div class="civicfg-import-diff-list">
                     {foreach from=$item.rows item=row name=importrowloop}
                       {if $smarty.foreach.importrowloop.index lt 6}
-                        <div class="civicfg-mini">
-                          <strong>{$row.label|escape}</strong><br />
-                          <span class="civicfg-muted">{ts}Current CiviCRM{/ts}:</span> <span class="civicfg-diff-value">{$row.new|escape}</span><br />
-                          <span class="civicfg-muted">{ts}YAML{/ts}:</span> <span class="civicfg-diff-value">{$row.old|escape}</span>
+                        <div class="civicfg-import-diff-row">
+                          <div class="civicfg-import-diff-field"><strong>{$row.label|escape}</strong><br /><code>{$row.path|escape}</code></div>
+                          <div class="civicfg-import-diff-cell civicfg-diff-new"><span class="civicfg-muted">{ts}Current CiviCRM{/ts}</span><div class="civicfg-diff-value">{$row.new_html nofilter}</div></div>
+                          <div class="civicfg-import-diff-cell civicfg-diff-old"><span class="civicfg-muted">{ts}YAML To Import{/ts}</span><div class="civicfg-diff-value">{$row.old_html nofilter}</div></div>
                         </div>
                       {/if}
                     {/foreach}
@@ -48,7 +48,7 @@
 
           <div class="civicfg-actions">
             {if $canImport and $importApplyTypes|@count gt 0}
-              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm="Import will update active CiviCRM configuration from YAML. This can revert changes made in the UI or database. Continue?">
+              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Import YAML to CiviCRM" data-civicfg-confirm-message="Import will update active CiviCRM configuration from YAML. This can revert changes made in the UI or database. Continue only after reviewing the changed files.">
                 <input type="hidden" name="_action" value="import_apply" />
                 {foreach from=$importApplyTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
                 <button type="submit" class="button"><span>{ts}Import{/ts}</span></button>

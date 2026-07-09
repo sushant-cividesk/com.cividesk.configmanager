@@ -81,3 +81,14 @@
 .crm-configmanager-block .civicfg-settings-form table.form-layout-compressed td.label {width: 180px; min-width: 180px;}
 .crm-configmanager-block .civicfg-settings-form input.crm-form-text {width: min(760px, 100%); max-width: 100%;}
 .crm-configmanager-block .civicfg-settings-form textarea.crm-form-textarea {width: 100%; max-width: 100%; min-height: 300px;}
+.crm-configmanager-block .civicfg-diff-value mark {background:#ffea7a; color:#111; padding:0 .08rem; border-radius:2px; font-weight:700;}
+.crm-configmanager-block .civicfg-diff-value mark.civicfg-diff-empty {background:#ffd6d6; color:#842029;}
+.crm-configmanager-block .civicfg-import-diff-list {display:grid; gap:.5rem; margin:.5rem 0;}
+.crm-configmanager-block .civicfg-import-diff-row {display:grid; grid-template-columns:minmax(180px, 280px) 1fr 1fr; gap:.5rem; border:1px solid #e2e6ea; border-radius:3px; background:var(--crm-c-page-background, #fff); padding:.5rem;}
+.crm-configmanager-block .civicfg-import-diff-field {overflow-wrap:anywhere;}
+.crm-configmanager-block .civicfg-import-diff-cell {border:1px solid #e2e6ea; border-radius:3px; padding:.45rem; overflow:auto; max-height:260px;}
+.crm-configmanager-block .civicfg-confirm-box {width:min(680px, 92vw);}
+.crm-configmanager-block .civicfg-confirm-check {display:block; margin:1rem 0 .75rem; font-weight:600;}
+.crm-configmanager-block .civicfg-confirm-label {display:block; margin:.5rem 0 .25rem; font-weight:600;}
+.crm-configmanager-block #civicfg-confirm-text {width:12rem; max-width:100%; text-transform:uppercase;}
+@media (max-width: 900px) {.crm-configmanager-block .civicfg-import-diff-row {grid-template-columns:1fr;}}

@@ -1,7 +1,9 @@
 <?php
+
 namespace Civi\Api4;
 
 use Civi\Api4\Generic\AbstractEntity;
+use Civi\Api4\Generic\BasicGetFieldsAction;
 use Civi\ConfigManager\UI\Permission;
 
 /**
@@ -23,11 +25,20 @@ class ConfigManager extends AbstractEntity {
       'validate' => [Permission::ACCESS],
       'export' => [Permission::EXPORT],
       'import' => [Permission::IMPORT],
+      'getFields' => [Permission::ACCESS],
     ];
   }
 
+  /**
+   * API4 metadata action.
+   *
+   * AbstractEntity requires getFields(), and SearchKit metadata loading expects
+   * this method to return an API4 action object, not a plain array.
+   */
   public static function getFields($checkPermissions = TRUE) {
-    return [];
+    return (new BasicGetFieldsAction(__CLASS__, __FUNCTION__, function () {
+      return [];
+    }))->setCheckPermissions($checkPermissions);
   }
 
   public static function status($checkPermissions = TRUE) {

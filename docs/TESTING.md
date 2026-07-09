@@ -13,7 +13,7 @@ Use this flow for every handler that supports import:
 5. Use Export to write the CiviCRM change into YAML, then confirm the site is back in sync.
 6. Revert the YAML field manually or from Git.
 7. Use Import preview to confirm YAML will update CiviCRM.
-8. Apply Import and confirm the CiviCRM UI/database value is reverted to YAML.
+8. Apply Import, complete the confirmation modal by acknowledging the warning and typing `IMPORT`, and confirm the CiviCRM UI/database value is reverted to YAML.
 9. Confirm Synchronize reports no pending changes.
 
 ## Phase 1 Handler Matrix
@@ -58,7 +58,8 @@ Expected behavior:
 
 - Synchronize should report only the changed field.
 - The modal should not flood the page with the entire template body.
-- Long preview values may be truncated in the UI, while the YAML file keeps the complete content.
+- The changed text should be visible near the center of the preview and highlighted.
+- Long preview values may be focused/truncated in the UI, while the YAML file keeps the complete content.
 
 ## CMS Smoke Tests
 
@@ -69,3 +70,7 @@ Before wider release, run the standard flow on:
 - CiviCRM Standalone
 
 For each CMS, verify UI access, API4 commands, sync-directory resolution, export, import dry-run, import apply, validation, ZIP download/upload, and CiviCRM status report notices.
+
+## Recreate From YAML Test
+
+For handlers that support create/update import, delete a non-critical test record from CiviCRM after export and then import it from YAML. Confirm the record is recreated with the YAML values. Note that CiviCRM may assign a new numeric database ID; dependency checks should rely on stable names/keys where available.
