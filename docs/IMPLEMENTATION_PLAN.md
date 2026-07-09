@@ -77,24 +77,24 @@ Create/update import is currently implemented for:
 - Contact Types
 - Relationship Types
 - Location Types
+- Financial Types
+- Custom Groups and Fields
+- CiviCRM Settings Allowlist
+- Message Templates
 - Dedupe Rules
 - Scheduled Jobs
 - SearchKit Saved Searches
 - SearchKit Displays
 - FormBuilder Afforms
 
-Import remains non-destructive. Extra CiviCRM records are not removed when missing from YAML.
+Import remains non-destructive. Extra CiviCRM records are not removed when missing from YAML. Payment Processors remain export/diff only because sanitized exports may omit required environment-specific values.
 
 ## Remaining phase 1 work
 
-- Complete Custom Groups and Fields import.
-- Complete Message Templates import.
-- Complete CiviCRM Settings Allowlist import.
-- Build stronger dependency graph validation before import. Current split files include dependency metadata where detectable, but imports do not yet block on missing dependencies globally.
-- Add round-trip tests for each handler.
+- Add round-trip tests for each handler on real CiviCRM builds.
 - Add compatibility smoke tests for Drupal, WordPress, and Standalone.
-- Add clearer per-handler import readiness reporting.
-- Re-check whether Financial Types should become importable in phase 1 or stay export/diff only.
+- Expand dependency graph validation and decide which dependency warnings should become import blockers.
+- Add clearer per-handler import readiness reporting based on real-world failures.
 - Re-check whether sanitized Payment Processors should ever be importable by default.
 
 ## UI maintenance rules

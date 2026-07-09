@@ -100,6 +100,8 @@ Current split-file handlers:
 - SearchKit Saved Searches
 - SearchKit Displays
 - FormBuilder Afforms
+- Message Templates
+- Custom Groups and Fields
 
 Split files contain one record under `item`, an `identity_field`, and dependency metadata where detectable. The generic API4 handler continues to accept older collection files for import, but new exports use the split-file layout for the handlers listed above.
 
@@ -111,9 +113,12 @@ Split files contain one record under `item`, an `identity_field`, and dependency
 
 Imports are conservative in the current alpha series.
 
-- Create/update is supported only by specific handlers.
+- Create/update is supported only by specific handlers documented in `../README.md`.
 - Import does not delete records.
 - Machine names are treated as identities.
+- YAML acts as the source of truth for supported create/update fields, so import can revert UI/database changes back to the exported YAML state.
+- The UI asks for confirmation before applying imports.
+- Dependency metadata is validated where available and missing managed YAML dependencies are reported as warnings.
 - Suspected machine-name renames are warned and skipped.
 - Unsupported handlers report `not_implemented` instead of partially applying changes.
 

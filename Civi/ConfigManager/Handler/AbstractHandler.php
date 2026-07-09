@@ -310,7 +310,16 @@ abstract class AbstractHandler implements HandlerInterface {
     if (is_bool($value)) {
       return $value ? 'true' : 'false';
     }
-    return (string) $value;
+    $value = (string) $value;
+    $value = str_replace(["\r\n", "\r"], "\n", $value);
+    $lines = explode("\n", $value);
+    if (count($lines) > 20) {
+      $value = implode("\n", array_slice($lines, 0, 20)) . "\n... (diff value truncated for preview)";
+    }
+    if (strlen($value) > 2400) {
+      $value = substr($value, 0, 2400) . "\n... (diff value truncated for preview)";
+    }
+    return $value;
   }
 
   protected function api4Get(string $entity, array $where = [], array $select = ['*'], array $orderBy = []): array {
@@ -378,6 +387,45 @@ abstract class AbstractHandler implements HandlerInterface {
       unset($values[$field]);
     }
     return $values;
+  }
+
+  protected function baseImportSummary(bool $dryRun): array {
+    return [
+      'type' => $this->getType(),
+      'status' => $dryRun ? 'dry_run' : 'applied',
+      'dry_run' => $dryRun,
+      'create' => 0,
+      'update' => 0,
+      'skip' => 0,
+      'warnings' => [],
+      'errors' => [],
+    ];
+  }
+
+  protected function desiredDiffers(array $existing, array $desired): bool {
+    foreach ($desired as $key => $value) {
+      if (!array_key_exists($key, $existing)) {
+        continue;
+      }
+      if ($this->normaliseComparableValue($existing[$key]) !== $this->normaliseComparableValue($value)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  protected function normaliseComparableValue($value) {
+    if ($value === NULL || $value === '') {
+      return '';
+    }
+    if (is_bool($value)) {
+      return $value ? '1' : '0';
+    }
+    if (is_array($value)) {
+      ksort($value);
+      return json_encode($value);
+    }
+    return (string) $value;
   }
 
 }

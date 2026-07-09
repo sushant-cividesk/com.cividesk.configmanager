@@ -245,7 +245,7 @@ class OptionGroupHandler extends AbstractHandler {
     }
   }
 
-  private function desiredDiffers(array $existing, array $desired): bool {
+  protected function desiredDiffers(array $existing, array $desired): bool {
     foreach ($desired as $key => $value) {
       if (!array_key_exists($key, $existing)) {
         continue;

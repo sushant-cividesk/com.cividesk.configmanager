@@ -34,6 +34,85 @@ class MessageTemplateHandler extends AbstractHandler {
     return $files;
   }
 
+  public function validate(array $items): array {
+    $errors = [];
+    $warnings = [];
+    foreach ($items as $filename => $file) {
+      if (($file['type'] ?? '') !== 'message_template') {
+        $errors[] = ['file' => $filename, 'message' => 'Invalid type. Expected message_template.'];
+        continue;
+      }
+      $template = (array) ($file['template'] ?? []);
+      if (empty($template['workflow_name']) && empty($template['msg_title'])) {
+        $errors[] = ['file' => $filename, 'message' => 'Message template needs workflow_name or msg_title.'];
+      }
+      if (!array_key_exists('msg_html', $template) && !array_key_exists('msg_text', $template)) {
+        $warnings[] = ['file' => $filename, 'message' => 'Message template has no msg_html or msg_text body.'];
+      }
+    }
+    return ['type' => $this->getType(), 'valid' => empty($errors), 'warnings' => $warnings, 'errors' => $errors, 'count' => count($items)];
+  }
+
+  public function import(array $items, bool $dryRun = TRUE): array {
+    $summary = $this->baseImportSummary($dryRun);
+    foreach ($items as $filename => $file) {
+      if (($file['type'] ?? '') !== 'message_template') {
+        $summary['errors'][] = ['file' => $filename, 'message' => 'Invalid type. Expected message_template.'];
+        continue;
+      }
+      $template = $this->cleanValues((array) ($file['template'] ?? []));
+      if (!$template) {
+        $summary['errors'][] = ['file' => $filename, 'message' => 'No template data found.'];
+        continue;
+      }
+      $where = $this->identityWhere($template);
+      if (!$where) {
+        $summary['errors'][] = ['file' => $filename, 'message' => 'Message template needs workflow_name or msg_title.'];
+        continue;
+      }
+
+      try {
+        $existing = $this->api4GetFirst('MessageTemplate', $where, ['*']);
+        if ($existing) {
+          if ($this->desiredDiffers($existing, $template)) {
+            $summary['update']++;
+            if (!$dryRun) {
+              $this->api4Update('MessageTemplate', [['id', '=', $existing['id']]], $template);
+            }
+          }
+          else {
+            $summary['skip']++;
+          }
+        }
+        else {
+          $summary['create']++;
+          if (!$dryRun) {
+            $this->api4Create('MessageTemplate', $template);
+          }
+        }
+      }
+      catch (\Throwable $e) {
+        $summary['errors'][] = ['file' => $filename, 'message' => $e->getMessage()];
+      }
+    }
+    $summary['ok'] = empty($summary['errors']);
+    return $summary;
+  }
+
+  private function identityWhere(array $template): array {
+    if (!empty($template['workflow_name'])) {
+      $where = [['workflow_name', '=', (string) $template['workflow_name']]];
+      if (array_key_exists('is_default', $template)) {
+        $where[] = ['is_default', '=', !empty($template['is_default'])];
+      }
+      return $where;
+    }
+    if (!empty($template['msg_title'])) {
+      return [['msg_title', '=', (string) $template['msg_title']]];
+    }
+    return [];
+  }
+
   private function uniqueFileName(string $name, array &$used): string {
     $base = $this->safeName($name);
     $candidate = $base;

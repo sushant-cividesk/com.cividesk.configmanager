@@ -256,12 +256,14 @@ class ConfigManager {
   public function validate(array $typeFilter = []): array {
     $storage = new YamlFileStorage($this->getSyncDir());
     $result = ['ok' => TRUE, 'sync_dir' => $storage->getRoot(), 'items' => [], 'errors' => []];
+    $yamlByType = [];
     foreach ($this->getHandlers() as $handler) {
       if ($typeFilter && !in_array($handler->getType(), $typeFilter, TRUE)) {
         continue;
       }
       try {
         $files = $storage->readDirectory($handler->getDirectory());
+        $yamlByType[$handler->getType()] = $files;
         $validation = $handler->validate($files);
         $result['items'][] = $validation;
         if (empty($validation['valid'])) {
@@ -272,8 +274,95 @@ class ConfigManager {
         $result['errors'][] = ['type' => $handler->getType(), 'message' => $e->getMessage()];
       }
     }
+    $this->addDependencyWarnings($result, $yamlByType);
     $result['ok'] = $result['ok'] && empty($result['errors']);
     return $result;
+  }
+
+  private function addDependencyWarnings(array &$result, array $yamlByType): void {
+    $available = $this->collectManagedYamlNames($yamlByType);
+    $itemIndex = [];
+    foreach ($result['items'] as $index => $item) {
+      if (!empty($item['type'])) {
+        $itemIndex[(string) $item['type']] = $index;
+      }
+    }
+
+    foreach ($yamlByType as $type => $files) {
+      if (!isset($itemIndex[$type])) {
+        continue;
+      }
+      foreach ($files as $filename => $file) {
+        foreach ($this->extractDependenciesFromYamlFile((array) $file) as $dependency) {
+          $dependencyType = (string) ($dependency['type'] ?? '');
+          $dependencyName = (string) ($dependency['name'] ?? '');
+          if ($dependencyType === '' || $dependencyName === '') {
+            continue;
+          }
+          if (!isset($available[$dependencyType])) {
+            continue;
+          }
+          if (!isset($available[$dependencyType][$dependencyName])) {
+            $result['items'][$itemIndex[$type]]['warnings'][] = [
+              'file' => $filename,
+              'message' => sprintf('Missing dependency in YAML: %s "%s". Export/import related items together to avoid broken relationships.', $dependencyType, $dependencyName),
+            ];
+          }
+        }
+      }
+    }
+  }
+
+  private function collectManagedYamlNames(array $yamlByType): array {
+    $available = [];
+    foreach ($yamlByType as $type => $files) {
+      foreach ($files as $file) {
+        $file = (array) $file;
+        foreach ($this->namesFromYamlFile($file) as $name) {
+          $available[$type][(string) $name] = TRUE;
+        }
+      }
+    }
+    return $available;
+  }
+
+  private function namesFromYamlFile(array $file): array {
+    $names = [];
+    if (!empty($file['name'])) {
+      $names[] = (string) $file['name'];
+    }
+    if (!empty($file['item']) && is_array($file['item'])) {
+      foreach (['name', 'title', 'name_a_b'] as $key) {
+        if (!empty($file['item'][$key])) {
+          $names[] = (string) $file['item'][$key];
+        }
+      }
+    }
+    foreach (($file['items'] ?? []) as $row) {
+      if (is_array($row)) {
+        foreach (['name', 'title', 'name_a_b'] as $key) {
+          if (!empty($row[$key])) {
+            $names[] = (string) $row[$key];
+          }
+        }
+      }
+    }
+    return array_values(array_unique($names));
+  }
+
+  private function extractDependenciesFromYamlFile(array $file): array {
+    $dependencies = [];
+    foreach (($file['dependencies'] ?? []) as $dependency) {
+      if (is_array($dependency)) {
+        $dependencies[] = $dependency;
+      }
+    }
+    foreach (($file['item']['dependencies'] ?? []) as $dependency) {
+      if (is_array($dependency)) {
+        $dependencies[] = $dependency;
+      }
+    }
+    return $dependencies;
   }
 
   public function import(bool $dryRun = TRUE, bool $yes = FALSE, array $typeFilter = []): array {

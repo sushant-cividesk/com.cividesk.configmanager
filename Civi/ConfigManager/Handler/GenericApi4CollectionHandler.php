@@ -232,32 +232,6 @@ class GenericApi4CollectionHandler extends AbstractHandler {
     return $row;
   }
 
-  private function desiredDiffers(array $existing, array $desired): bool {
-    foreach ($desired as $key => $value) {
-      if (!array_key_exists($key, $existing)) {
-        continue;
-      }
-      if ($this->normaliseComparable($existing[$key]) !== $this->normaliseComparable($value)) {
-        return TRUE;
-      }
-    }
-    return FALSE;
-  }
-
-  private function normaliseComparable($value) {
-    if ($value === NULL || $value === '') {
-      return '';
-    }
-    if (is_bool($value)) {
-      return $value ? '1' : '0';
-    }
-    if (is_array($value)) {
-      ksort($value);
-      return json_encode($value);
-    }
-    return (string) $value;
-  }
-
   private function fileNameFor(string $name): string {
     $safe = preg_replace('/[^A-Za-z0-9_.-]+/', '-', $name);
     $safe = trim((string) $safe, '-');

@@ -2,6 +2,15 @@
 
 All notable ZIP/test builds for `com.cividesk.configmanager` are tracked here. Other docs describe current behavior only and should reference this file instead of repeating release notes.
 
+## 0.1.0-alpha28-core
+
+- Added create/update import support for Message Templates, CiviCRM Settings Allowlist, Custom Groups and Fields, and Financial Types.
+- Made YAML-to-CiviCRM import usable for reverting supported UI/database changes back to the exported YAML source of truth.
+- Added an import confirmation prompt before applying YAML changes to active CiviCRM configuration.
+- Added cross-file dependency warnings where exported YAML declares dependencies on other managed YAML items.
+- Improved large text diff previews so message-template HTML bodies no longer flood the modal or import preview; long values are truncated in the UI while the underlying YAML/diff remains complete.
+- Updated documentation to reflect current import support, dependency warnings, alpha safety behavior, and manual round-trip test expectations.
+
 ## 0.1.0-alpha27-core
 
 - Added runtime version lookup from `info.xml` and removed the hard-coded `exported_with` version from the export manifest service.

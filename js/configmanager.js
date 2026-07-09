@@ -29,6 +29,16 @@
       }
     });
 
+
+    document.querySelectorAll('.crm-configmanager-block form[data-civicfg-confirm]').forEach(function(form) {
+      form.addEventListener('submit', function(ev) {
+        var message = form.getAttribute('data-civicfg-confirm') || 'Import will update active CiviCRM configuration from YAML. Continue?';
+        if (!window.confirm(message)) {
+          ev.preventDefault();
+        }
+      });
+    });
+
     var exportSelect = document.getElementById('export_item');
     if (exportSelect) {
       var endpoint = exportSelect.getAttribute('data-civicfg-single-url');

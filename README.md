@@ -6,10 +6,10 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha27-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha28-core`
 - Supported CiviCRM target: 5.x and 6.x
 
-For release-by-release history, see `CHANGELOG.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
+For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
 
 ## Purpose
 
@@ -46,6 +46,8 @@ Current import behavior:
 - Imports are non-destructive in this alpha.
 - Missing YAML does not delete existing CiviCRM records.
 - Records that exist only in CiviCRM are left unchanged.
+- Supported handlers apply YAML as the source of truth for create/update fields, so importing can revert UI/database changes back to the last exported YAML state.
+- The UI asks for confirmation before applying import changes.
 - Unsupported handlers are shown as not ready instead of applying partial changes.
 
 The Import tab also supports uploading a single YAML file or a ZIP archive into the sync directory before previewing changes.
@@ -152,13 +154,17 @@ Current create/update import support includes:
 - Contact Types
 - Relationship Types
 - Location Types
+- Financial Types
+- Custom Groups and Fields
+- CiviCRM Settings Allowlist
+- Message Templates
 - Dedupe Rules
 - Scheduled Jobs
 - SearchKit Saved Searches
 - SearchKit Displays
 - FormBuilder Afforms
 
-Other handlers may export and diff but still show as not ready for import.
+Payment Processors remain export/diff only because exported data is sanitized and may omit environment-specific or secret values.
 
 ## YAML layout
 
@@ -168,6 +174,9 @@ Most stable config types are stored as collection files, for example `extensions
 - `searchkit/displays/<name>.yml`
 - `formbuilder/afforms/<name>.yml`
 - `scheduled-jobs/<name>.yml`
+- `message-templates/system/<name>.yml`
+- `message-templates/user/<name>.yml`
+- `custom-data/groups/<name>.yml`
 
 Each split file uses `type: <handler>.item`, stores the editable record under `item`, and includes a `dependencies` section where dependencies are detectable. Collection files use `type: <handler>.collection` and an `items` list. Existing collection files for these handlers are still accepted for import, but the current export format rewrites them as split files.
 
@@ -178,6 +187,8 @@ The export manifest is written to `manifest.yml`. Its `exported_with` value is r
 - Import does not delete records in the current alpha series.
 - Machine names are treated as identities.
 - Suspected machine-name renames are warned and skipped.
+- Dependency metadata is validated where available, and missing managed YAML dependencies are reported as warnings before import.
+- Large scalar values such as HTML message-template bodies are truncated in UI previews; the YAML and field-level diff still carry the complete value.
 - Payment processor secrets are never exported.
 - Live transactional data is never exported.
 - ZIP upload only stages YAML files under the configured sync directory.

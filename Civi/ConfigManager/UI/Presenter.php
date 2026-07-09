@@ -248,7 +248,7 @@ class Presenter {
   }
 
   private function getImportableTypes(): array {
-    return ['extensions', 'option-groups', 'contact-types', 'relationship-types', 'location-types', 'dedupe-rules', 'scheduled-jobs', 'searchkit-saved-searches', 'searchkit-displays', 'formbuilder-afforms'];
+    return ['extensions', 'option-groups', 'contact-types', 'relationship-types', 'location-types', 'financial-types', 'custom-data', 'settings', 'message-templates', 'dedupe-rules', 'scheduled-jobs', 'searchkit-saved-searches', 'searchkit-displays', 'formbuilder-afforms'];
   }
 
   private function humanizeChangePath(string $path): string {
@@ -302,6 +302,21 @@ class Presenter {
       }
       return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
-    return (string) $value;
+    $value = (string) $value;
+    return $this->truncateLongValue($value);
+  }
+
+  private function truncateLongValue(string $value): string {
+    $value = str_replace(["\r\n", "\r"], "\n", $value);
+    $lines = explode("\n", $value);
+    $maxLines = 18;
+    $maxChars = 1800;
+    if (count($lines) > $maxLines) {
+      $value = implode("\n", array_slice($lines, 0, $maxLines)) . "\n... (preview truncated; use Show Diff Text or open the YAML file for full content)";
+    }
+    if (strlen($value) > $maxChars) {
+      $value = substr($value, 0, $maxChars) . "\n... (preview truncated)";
+    }
+    return $value;
   }
 }

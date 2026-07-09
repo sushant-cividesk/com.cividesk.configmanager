@@ -10,7 +10,7 @@
         <div class="civicfg-panel-body">
           <div class="civicfg-actions">
             {if $canImport and $importApplyTypes|@count gt 0}
-              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}">
+              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm="Import will update active CiviCRM configuration from YAML. This can revert changes made in the UI or database. Continue?">
                 <input type="hidden" name="_action" value="import_apply" />
                 {foreach from=$importApplyTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
                 <button type="submit" class="button"><span>{ts}Import{/ts}</span></button>
@@ -48,7 +48,7 @@
 
           <div class="civicfg-actions">
             {if $canImport and $importApplyTypes|@count gt 0}
-              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}">
+              <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm="Import will update active CiviCRM configuration from YAML. This can revert changes made in the UI or database. Continue?">
                 <input type="hidden" name="_action" value="import_apply" />
                 {foreach from=$importApplyTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
                 <button type="submit" class="button"><span>{ts}Import{/ts}</span></button>

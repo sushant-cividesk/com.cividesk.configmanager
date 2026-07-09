@@ -20,21 +20,17 @@ The current alpha focuses on a safe, reviewable configuration workflow:
 
 Before treating phase 1 as complete, finish:
 
-- Custom Groups and Fields import.
-- Message Templates import.
-- CiviCRM Settings Allowlist import.
-- Dependency graph validation.
-- Round-trip tests for all phase 1 handlers.
+- Round-trip tests for all phase 1 handlers on real CiviCRM builds.
 - Drupal, WordPress, and Standalone smoke tests.
-- Clearer import readiness and warning messages per handler.
-- Final decision on Financial Types import support.
+- More handler-specific import readiness messages based on real-world failures.
+- Decide whether sanitized Payment Processors should ever be importable by default.
 - Final decision on sanitized Payment Processors import support.
 
 ## Phase 1.1 hardening
 
 - Improve diff summaries for large files.
 - Add more handler-specific validation.
-- Add safer dependency detection for SearchKit, Afform, custom fields, and option values.
+- Expand dependency detection for SearchKit, Afform, custom fields, option values, and future CiviRules.
 - Improve status report wording after real-world testing.
 - Add documentation for deployment workflows between dev/stage/prod.
 
