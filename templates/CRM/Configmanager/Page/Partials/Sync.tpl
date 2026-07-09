@@ -1,6 +1,6 @@
   {if $op eq 'sync'}
     <div class="civicfg-actions">
-      {if $canExport}<form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" {if $exportDependencyTypes|@count gt 0}data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Export with Dependencies" data-civicfg-confirm-word="EXPORT" data-civicfg-confirm-button="Export" data-civicfg-confirm-message="The selected filter has related dependency types. Export will include those related YAML files too so the configuration can deploy safely."{/if}>
+      {if $canExport}<form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" {if $exportDependencyTypes|@count gt 0}data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Export with Dependencies" data-civicfg-confirm-word="EXPORT" data-civicfg-confirm-button="Export" data-civicfg-confirm-message="The selected filter has related dependency types. Export will include those related YAML files too so the configuration can deploy safely." data-civicfg-confirm-warning="Export writes active CiviCRM configuration to YAML. Related dependency files will also be exported so the exported set stays deployable."{/if}>
         <input type="hidden" name="_action" value="export_write" />
         {foreach from=$selectedTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
         <button type="submit" class="button"><span>{ts}Export{/ts}</span></button>
@@ -14,8 +14,66 @@
     </div>
 
     {if $validationResult}
-      <h3>{ts}Validation{/ts}</h3>
-      {if $validationResult.ok}<div class="messages status no-popup">{ts}YAML validation passed.{/ts}</div>{else}<div class="messages error no-popup">{ts}YAML validation found problems. Review the validation messages and logs for details.{/ts}</div>{/if}
+      <details class="civicfg-panel civicfg-validation-panel" open="open">
+        <summary>{ts}Validation Details{/ts}</summary>
+        <div class="civicfg-panel-body">
+          {if $validationResult.ok}
+            <div class="messages status no-popup">{ts}YAML validation passed.{/ts}</div>
+          {else}
+            <div class="messages error no-popup">{ts}YAML validation found problems.{/ts}</div>
+          {/if}
+
+          {if $validationResult.errors|@count gt 0}
+            <div class="messages error no-popup">
+              <strong>{ts}Validation errors{/ts}</strong>
+              <ul>
+                {foreach from=$validationResult.errors item=error}
+                  <li>
+                    {if $error.type}<code>{$error.type|escape}</code>: {/if}
+                    {$error.message|escape}
+                  </li>
+                {/foreach}
+              </ul>
+            </div>
+          {/if}
+
+          {foreach from=$validationResult.items item=item}
+            {if $item.errors|@count gt 0 || $item.warnings|@count gt 0}
+              <div class="civicfg-change-card">
+                <h4>{$item.type|escape}</h4>
+
+                {if $item.errors|@count gt 0}
+                  <div class="messages error no-popup">
+                    <strong>{ts}Errors{/ts}</strong>
+                    <ul>
+                      {foreach from=$item.errors item=error}
+                        <li>
+                          {if $error.file}<code>{$error.file|escape}</code>: {/if}
+                          {$error.message|escape}
+                        </li>
+                      {/foreach}
+                    </ul>
+                  </div>
+                {/if}
+
+                {if $item.warnings|@count gt 0}
+                  <div class="messages warning no-popup">
+                    <strong>{ts}Warnings{/ts}</strong>
+                    <ul>
+                      {foreach from=$item.warnings item=warning}
+                        <li>
+                          {if $warning.file}<code>{$warning.file|escape}</code>: {/if}
+                          {$warning.message|escape}
+                        </li>
+                      {/foreach}
+                    </ul>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          {/foreach}
+        </div>
+      </details>
     {/if}
 
     {if $summary.total_changes eq 0}
@@ -61,7 +119,7 @@
     {/if}
 
     <div class="civicfg-actions">
-      {if $canExport}<form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" {if $exportDependencyTypes|@count gt 0}data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Export with Dependencies" data-civicfg-confirm-word="EXPORT" data-civicfg-confirm-button="Export" data-civicfg-confirm-message="The selected filter has related dependency types. Export will include those related YAML files too so the configuration can deploy safely."{/if}>
+      {if $canExport}<form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" {if $exportDependencyTypes|@count gt 0}data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Export with Dependencies" data-civicfg-confirm-word="EXPORT" data-civicfg-confirm-button="Export" data-civicfg-confirm-message="The selected filter has related dependency types. Export will include those related YAML files too so the configuration can deploy safely." data-civicfg-confirm-warning="Export writes active CiviCRM configuration to YAML. Related dependency files will also be exported so the exported set stays deployable."{/if}>
         <input type="hidden" name="_action" value="export_write" />
         {foreach from=$selectedTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
         <button type="submit" class="button"><span>{ts}Export{/ts}</span></button>

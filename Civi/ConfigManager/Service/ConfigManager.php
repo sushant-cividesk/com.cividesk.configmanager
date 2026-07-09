@@ -359,6 +359,10 @@ class ConfigManager {
 
   private function addDependencyWarnings(array &$result, array $yamlByType): void {
     $available = $this->collectManagedYamlNames($yamlByType);
+    $managedTypes = [];
+    foreach ($this->getHandlers() as $handler) {
+      $managedTypes[$handler->getType()] = $handler->getLabel();
+    }
     $itemIndex = [];
     foreach ($result['items'] as $index => $item) {
       if (!empty($item['type'])) {
@@ -377,14 +381,16 @@ class ConfigManager {
           if ($dependencyType === '' || $dependencyName === '') {
             continue;
           }
-          if (!isset($available[$dependencyType])) {
+          if (!isset($managedTypes[$dependencyType])) {
+            // Non-managed runtime dependencies such as api-entity are informational.
             continue;
           }
           if (!isset($available[$dependencyType][$dependencyName])) {
             $result['ok'] = FALSE;
+            $reason = (string) ($dependency['reason'] ?? 'This YAML item references another managed config item.');
             $result['items'][$itemIndex[$type]]['errors'][] = [
               'file' => $filename,
-              'message' => sprintf('Missing dependency in YAML: %s "%s". Export/import related items together to avoid broken relationships.', $dependencyType, $dependencyName),
+              'message' => sprintf('Cannot import %s because required dependency %s "%s" is missing from YAML. %s Re-export the related items together, or restore the missing YAML file before importing.', $filename, $dependencyType, $dependencyName, $reason),
             ];
           }
         }
@@ -457,10 +463,44 @@ class ConfigManager {
       ];
     }
     $result = ['ok' => TRUE, 'dry_run' => $dryRun, 'applied' => !$dryRun && $yes, 'items' => []];
+    $handlers = [];
     foreach ($this->getHandlers() as $handler) {
       if ($effectiveTypes && !in_array($handler->getType(), $effectiveTypes, TRUE)) {
         continue;
       }
+      $handlers[] = $handler;
+    }
+
+    if (!$dryRun && $yes) {
+      // Apply create/update first for all types, then delete missing records in
+      // reverse order. This avoids deleting a parent SavedSearch while a child
+      // SearchDisplay still exists and is scheduled for deletion in the same run.
+      foreach ($handlers as $handler) {
+        $this->setHandlerImportPhase($handler, TRUE, FALSE);
+        $files = $storage->readDirectory($handler->getDirectory());
+        $item = $handler->import($files, FALSE);
+        $item['phase'] = 'create_update';
+        $result['items'][] = $item;
+        if (!empty($item['errors'])) {
+          $result['ok'] = FALSE;
+        }
+      }
+      foreach (array_reverse($handlers) as $handler) {
+        $this->setHandlerImportPhase($handler, FALSE, TRUE);
+        $files = $storage->readDirectory($handler->getDirectory());
+        $item = $handler->import($files, FALSE);
+        $item['phase'] = 'delete_missing';
+        $result['items'][] = $item;
+        if (!empty($item['errors'])) {
+          $result['ok'] = FALSE;
+        }
+        $this->setHandlerImportPhase($handler, TRUE, TRUE);
+      }
+      return $result;
+    }
+
+    foreach ($handlers as $handler) {
+      $this->setHandlerImportPhase($handler, TRUE, TRUE);
       $files = $storage->readDirectory($handler->getDirectory());
       $item = $handler->import($files, $dryRun || !$yes);
       $result['items'][] = $item;
@@ -469,6 +509,15 @@ class ConfigManager {
       }
     }
     return $result;
+  }
+
+  private function setHandlerImportPhase($handler, bool $writeEnabled, bool $deleteEnabled): void {
+    if (method_exists($handler, 'setImportWriteEnabled')) {
+      $handler->setImportWriteEnabled($writeEnabled);
+    }
+    if (method_exists($handler, 'setDeleteMissingEnabled')) {
+      $handler->setDeleteMissingEnabled($deleteEnabled);
+    }
   }
 
 

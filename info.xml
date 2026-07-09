@@ -9,7 +9,7 @@
     <email>sushant@cividesk.com</email>
   </maintainer>
   <releaseDate>2026-07-06</releaseDate>
-  <version>0.1.0-alpha31-core</version>
+  <version>0.1.0-alpha32-core</version>
   <develStage>alpha</develStage>
   <compatibility>
     <ver>5.0</ver>
@@ -18,5 +18,5 @@
   <mixins>
     <mixin>scan-classes@1.0.0</mixin>
   </mixins>
-  <comments>Alpha core build: dependency-aware export/import, YAML-source deletes for supported handlers, and post/redirect/get UI actions.</comments>
+  <comments>Alpha core build: safer dependency metadata, dependency-aware import ordering, clear destructive import warnings, and export/import confirmation fixes.</comments>
 </extension>

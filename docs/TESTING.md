@@ -48,8 +48,9 @@ Payment Processors remain export/diff only and should not be tested as importabl
 6. Confirm the Search Display YAML declares the Saved Search dependency.
 7. Confirm the Afform YAML declares the Search Display dependency where detectable.
 8. Remove or move one dependency YAML file in a test copy of the sync directory.
-9. Run Validate and confirm a dependency warning is shown.
-10. Restore the dependency file before import.
+9. Run Validate and confirm a clear dependency error names the affected YAML file and missing dependency.
+10. Restore the dependency file before import, or remove the dependent YAML files together if testing destructive deletion.
+11. If deleting a Saved Search and its Display from YAML, confirm import deletes the SearchDisplay before the SavedSearch and finishes without a false error.
 
 ## Large Text Diff Test
 

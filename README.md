@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha31-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha32-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -46,7 +46,7 @@ Current import behavior:
 - Supported handlers treat YAML as the source of truth.
 - Import can create records that exist in YAML but not in CiviCRM.
 - Import can update records that differ between YAML and CiviCRM.
-- Import can delete supported records that exist in CiviCRM but not in YAML.
+- Import can delete supported records that exist in CiviCRM but not in YAML. Actual imports apply create/update first and then delete missing records in reverse dependency order where supported.
 - The UI uses a confirmation modal before applying import changes. The user must review the warning and type `IMPORT`.
 - CiviCRM may assign a new numeric ID when a deleted record is recreated from YAML; dependencies should rely on stable machine names wherever possible.
 - Unsupported handlers are shown as not ready instead of applying partial changes.
@@ -185,7 +185,7 @@ The export manifest is written to `manifest.yml`. Its `exported_with` value is r
 
 ## Safety rules
 
-- Import can delete supported records that are present in CiviCRM but missing from YAML. Review the import preview before applying.
+- Import can delete supported records that are present in CiviCRM but missing from YAML. Delete actions are shown as destructive actions in the import preview. Review the import preview before applying.
 - Machine names are treated as identities.
 - Suspected machine-name renames are warned and skipped.
 - Dependency metadata is validated where available. Missing managed YAML dependencies are treated as import-blocking errors to avoid broken relationships.
@@ -194,8 +194,8 @@ The export manifest is written to `manifest.yml`. Its `exported_with` value is r
 - Live transactional data is never exported.
 - ZIP upload only stages YAML files under the configured sync directory.
 - SearchKit Saved Searches, SearchKit Displays, FormBuilder Afforms, and Scheduled Jobs are exported as one YAML file per item so small changes are easier to review.
-- Split item files include dependency metadata where the extension can detect it.
-- Temporary filtered exports include related dependency-sensitive config types automatically. For example, SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together because they commonly reference each other. Custom Groups and Fields can include Option Groups and Contact Types. Relationship Types can include Contact Types. The UI warns before exporting a filtered set when dependency types will be added.
+- Split item files include dependency metadata where the extension can detect it. SearchDisplay files declare their SavedSearch dependency; SavedSearch files declare related SearchDisplays; Afform files declare referenced SearchKit displays where detectable.
+- Temporary filtered exports include related dependency-sensitive config types automatically. For example, SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together because they commonly reference each other. Custom Groups and Fields can include Option Groups and Contact Types. Relationship Types can include Contact Types. The UI warns before exporting a filtered set when dependency types will be added, and the confirmation uses `EXPORT` to distinguish it from destructive imports.
 - After a filtered export, the UI clears the temporary filter and reloads the full managed diff to avoid showing a misleading In Sync state for only the filtered subset. POST actions redirect after completion, so browser refresh does not resubmit export/import forms.
 
 ## System status integration

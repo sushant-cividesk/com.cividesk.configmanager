@@ -2,10 +2,23 @@
 namespace Civi\ConfigManager\Handler;
 
 class MessageTemplateHandler extends AbstractHandler {
+  private bool $importWritesEnabled = TRUE;
+  private bool $deleteMissingEnabled = TRUE;
+
   public function getType(): string { return 'message-templates'; }
   public function getLabel(): string { return 'Message Templates'; }
   public function getDirectory(): string { return 'message-templates'; }
   public function getWeight(): int { return 90; }
+
+  public function setImportWriteEnabled(bool $enabled): self {
+    $this->importWritesEnabled = $enabled;
+    return $this;
+  }
+
+  public function setDeleteMissingEnabled(bool $enabled): self {
+    $this->deleteMissingEnabled = $enabled;
+    return $this;
+  }
 
   public function export(): array {
     $rows = $this->api4Get('MessageTemplate', [], ['id', 'msg_title', 'msg_subject', 'msg_text', 'msg_html', 'workflow_name', 'is_default', 'is_reserved', 'is_active'], ['workflow_name' => 'ASC', 'msg_title' => 'ASC', 'id' => 'ASC']);
@@ -74,6 +87,10 @@ class MessageTemplateHandler extends AbstractHandler {
         continue;
       }
 
+      if (!$this->importWritesEnabled) {
+        continue;
+      }
+
       try {
         $existing = $this->api4GetFirst('MessageTemplate', $where, ['*']);
         if ($existing) {
@@ -98,7 +115,9 @@ class MessageTemplateHandler extends AbstractHandler {
         $summary['errors'][] = ['file' => $filename, 'message' => $e->getMessage()];
       }
     }
-    $this->deleteTemplatesMissingFromYaml($currentFiles, $seenFiles, $dryRun, $summary);
+    if ($this->deleteMissingEnabled) {
+      $this->deleteTemplatesMissingFromYaml($currentFiles, $seenFiles, $dryRun, $summary);
+    }
     $summary['ok'] = empty($summary['errors']);
     return $summary;
   }

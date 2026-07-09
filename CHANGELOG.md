@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-alpha32-core
+
+- Fixed the export dependency confirmation modal so export asks for `EXPORT` and shows export-specific warning text instead of import text.
+- Added stronger dependency metadata for SearchKit SavedSearch exports so related SearchDisplay files are declared and validated.
+- Improved dependency validation messages to name the file and missing dependency that blocks import.
+- Improved SearchDisplay import safety by resolving `saved_search_id` from `saved_search_id.name` on the target site instead of trusting source database IDs.
+- Changed destructive imports to apply create/update first and then delete missing records in reverse dependency order, so child SearchDisplay records are deleted before their parent SavedSearch.
+- Kept delete actions visually dangerous in the import preview using the red badge style.
+- Fixed a syntax issue in the UI page fallback error handling.
+
 ## 0.1.0-alpha31-core
 
 - Added the alpha29/alpha30 hotfixes into the versioned build, including the API4 metadata fix and Smarty undefined-key warning fix.

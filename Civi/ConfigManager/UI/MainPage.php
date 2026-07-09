@@ -100,10 +100,16 @@ class MainPage {
       }
       elseif ($postAction === 'validate_files') {
         $validationResult = $this->manager->validate($types);
-        $notice = !empty($validationResult['ok'])
-          ? ts('Validation passed. No YAML format problems were found for the selected files.')
-          : ts('Validation found problems. Review the validation details below.');
-        $this->redirectWithNotice($notice, 'sync', !empty($validationResult['ok']) ? 'success' : 'warning');
+        $op = 'sync';
+        $result = $this->manager->diff($types);
+
+        \CRM_Core_Session::setStatus(
+          !empty($validationResult['ok'])
+            ? ts('Validation passed. No YAML format problems were found for the selected files.')
+            : ts('Validation found problems. Review the validation details below.'),
+          ts('Configuration Manager'),
+          !empty($validationResult['ok']) ? 'success' : 'warning'
+        );
       }
       elseif ($op === 'import') {
         $result = $this->manager->diff($types);

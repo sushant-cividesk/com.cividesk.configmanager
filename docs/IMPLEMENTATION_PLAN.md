@@ -11,7 +11,7 @@ This document records current implementation decisions and remaining work. Versi
 - Sync directory setting: `civicfg_sync_dir`
 - Target compatibility: CiviCRM 5.x and 6.x
 - Current command strategy: API4 through `cv api4 ConfigManager.*`
-- Current import delete behavior: no deletes in alpha
+- Current import delete behavior: supported handlers can delete CiviCRM records that are absent from YAML, after preview and explicit confirmation
 - Payment processors: export sanitized data only; never export secrets
 - `org.civicoop.configitems`: reference only; not a dependency
 
@@ -70,7 +70,7 @@ Temporary filtered exports are expanded by type for known dependency-sensitive g
 - Custom Groups and Fields can bring Option Groups and Contact Types.
 - Relationship Types can bring Contact Types.
 
-This is type-level expansion, not a full per-record dependency graph yet. It prevents the common broken-export case while keeping the current alpha implementation simple.
+Type-level expansion is still used for temporary filtered exports, and split SearchKit/FormBuilder YAML files now also carry per-record dependency metadata where it can be detected. Missing managed dependency YAML files are import-blocking validation errors.
 
 ## Version maintenance
 
@@ -101,7 +101,7 @@ Import can create, update, and delete supported records according to YAML. Payme
 
 - Add round-trip tests for each handler on real CiviCRM builds.
 - Add compatibility smoke tests for Drupal, WordPress, and Standalone.
-- Expand dependency graph validation from type-level bundling to per-record dependency resolution, and decide which dependency warnings should become import blockers.
+- Continue expanding per-record dependency detection beyond the current SearchKit/FormBuilder/Scheduled Job metadata and add more handler-specific dependency ordering where needed.
 - Add clearer per-handler import readiness reporting based on real-world failures.
 - Re-check whether sanitized Payment Processors should ever be importable by default.
 

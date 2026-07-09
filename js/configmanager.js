@@ -43,7 +43,7 @@
           '<div class="civicfg-modal-header"><strong id="civicfg-confirm-title">Confirm import</strong><button type="button" class="civicfg-close" data-civicfg-confirm-cancel="1" aria-label="Close">×</button></div>' +
           '<div class="civicfg-modal-body">' +
             '<p id="civicfg-confirm-message"></p>' +
-            '<div class="messages warning no-popup">This action changes the YAML/CiviCRM sync state. For imports, YAML is the source of truth and supported CiviCRM records may be created, updated, deleted, or recreated with new database IDs.</div>' +
+            '<div id="civicfg-confirm-warning" class="messages warning no-popup"></div>' +
             '<label class="civicfg-confirm-check"><input type="checkbox" id="civicfg-confirm-reviewed" /> I reviewed the changed files, dependency notes, and understand this action can change active configuration.</label>' +
             '<label class="civicfg-confirm-label" for="civicfg-confirm-text">Type the confirmation word to continue</label>' +
             '<input type="text" id="civicfg-confirm-text" autocomplete="off" />' +
@@ -74,9 +74,11 @@
         var message = form.getAttribute('data-civicfg-confirm-message') || 'This action will update configuration.';
         var word = form.getAttribute('data-civicfg-confirm-word') || 'IMPORT';
         var buttonText = form.getAttribute('data-civicfg-confirm-button') || 'Continue';
+        var warning = form.getAttribute('data-civicfg-confirm-warning') || 'This action changes the YAML/CiviCRM sync state. Review the details before continuing.';
         modal._civicfgForm = form;
         modal.querySelector('#civicfg-confirm-title').textContent = title;
         modal.querySelector('#civicfg-confirm-message').textContent = message;
+        modal.querySelector('#civicfg-confirm-warning').textContent = warning;
         var reviewed = modal.querySelector('#civicfg-confirm-reviewed');
         var text = modal.querySelector('#civicfg-confirm-text');
         var apply = modal.querySelector('[data-civicfg-confirm-apply]');

@@ -11,6 +11,8 @@ class GenericApi4CollectionHandler extends AbstractHandler {
   private int $weight;
   private string $fileName;
   private bool $splitFiles;
+  private bool $importWritesEnabled = TRUE;
+  private bool $deleteMissingEnabled = TRUE;
 
   public function __construct(string $type, string $label, string $directory, string $entity, array $select, array $orderBy, int $weight, string $fileName, bool $splitFiles = FALSE) {
     $this->type = $type;
@@ -28,6 +30,16 @@ class GenericApi4CollectionHandler extends AbstractHandler {
   public function getLabel(): string { return $this->label; }
   public function getDirectory(): string { return $this->directory; }
   public function getWeight(): int { return $this->weight; }
+
+  public function setImportWriteEnabled(bool $enabled): self {
+    $this->importWritesEnabled = $enabled;
+    return $this;
+  }
+
+  public function setDeleteMissingEnabled(bool $enabled): self {
+    $this->deleteMissingEnabled = $enabled;
+    return $this;
+  }
 
   public function export(): array {
     $rows = $this->api4Get($this->entity, [], $this->select, $this->orderBy);
@@ -168,6 +180,10 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       $desired = $this->cleanImportValues($row);
       $existing = $this->api4GetFirst($this->entity, [[$identityField, '=', $identityValue]], ['*']);
 
+      if (!$this->importWritesEnabled) {
+        continue;
+      }
+
       try {
         if ($existing) {
           if ($this->desiredDiffers($existing, $desired)) {
@@ -196,7 +212,9 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       }
     }
 
-    $this->deleteRecordsMissingFromYaml($desiredKeys, array_keys($identityFields), $dryRun, $summary);
+    if ($this->deleteMissingEnabled) {
+      $this->deleteRecordsMissingFromYaml($desiredKeys, array_keys($identityFields), $dryRun, $summary);
+    }
 
     $summary['ok'] = empty($summary['errors']);
     return $summary;
@@ -277,6 +295,13 @@ class GenericApi4CollectionHandler extends AbstractHandler {
   }
 
   private function cleanImportValues(array $row): array {
+    if ($this->entity === 'SearchDisplay' && !empty($row['saved_search_id.name'])) {
+      $savedSearch = $this->api4GetFirst('SavedSearch', [['name', '=', (string) $row['saved_search_id.name']]], ['id', 'name']);
+      if (!$savedSearch || empty($savedSearch['id'])) {
+        throw new \RuntimeException('SearchDisplay requires missing SavedSearch dependency: ' . (string) $row['saved_search_id.name']);
+      }
+      $row['saved_search_id'] = $savedSearch['id'];
+    }
     unset($row['id']);
     foreach (array_keys($row) as $key) {
       if (strpos((string) $key, '.') !== FALSE) {
@@ -307,6 +332,22 @@ class GenericApi4CollectionHandler extends AbstractHandler {
 
   private function dependenciesForRow(array $row): array {
     $dependencies = [];
+
+    if ($this->entity === 'SavedSearch') {
+      $savedSearchName = (string) ($row['name'] ?? '');
+      if ($savedSearchName !== '') {
+        foreach ($this->api4Get('SearchDisplay', [['saved_search_id.name', '=', $savedSearchName]], ['name', 'label', 'saved_search_id.name'], ['name' => 'ASC']) as $display) {
+          if (!empty($display['name'])) {
+            $dependencies[] = [
+              'type' => 'searchkit-displays',
+              'entity' => 'SearchDisplay',
+              'name' => (string) $display['name'],
+              'reason' => 'This SearchKit display belongs to the SavedSearch and should be exported/imported with it.',
+            ];
+          }
+        }
+      }
+    }
 
     if ($this->entity === 'SearchDisplay') {
       $savedSearch = (string) ($row['saved_search_id.name'] ?? '');
