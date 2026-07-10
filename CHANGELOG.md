@@ -1,5 +1,13 @@
 # Changelog
 
+
+## 0.1.0-alpha35-core
+
+- Fixed cross-site diff comparison to normalize runtime fields before deciding a file is changed. Numeric database IDs should no longer appear as import/update-only differences after deploying YAML from another database.
+- Improved list comparison identities so rows keyed by `key`, `name`, `name_a_b`, `title`, or duplicate `name + value` are compared safely. This avoids false option-value and extension-status diffs.
+- Fixed the delete phase of generic imports so it does not resolve create/update-only dependencies while it is only calculating missing-record deletes.
+- Kept the Export page full archive UI fix so it does not imply that the ZIP contains only the files changed by the preview.
+
 ## 0.1.0-alpha34-core
 
 - Ignored runtime numeric database IDs in generic API4 diff/export comparison so YAML exported from one database can be compared safely against another database.

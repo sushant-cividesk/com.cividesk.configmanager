@@ -179,14 +179,14 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       $identityValue = (string) $row[$identityField];
       $desiredKeys[$this->identityKey($identityField, $identityValue)] = TRUE;
       $identityFields[$identityField] = TRUE;
-      $desired = $this->cleanImportValues($row);
-      $existing = $this->api4GetFirst($this->entity, [[$identityField, '=', $identityValue]], ['*']);
 
       if (!$this->importWritesEnabled) {
         continue;
       }
 
       try {
+        $desired = $this->cleanImportValues($row);
+        $existing = $this->api4GetFirst($this->entity, [[$identityField, '=', $identityValue]], ['*']);
         if ($existing) {
           if ($this->desiredDiffers($existing, $desired)) {
             $summary['update']++;

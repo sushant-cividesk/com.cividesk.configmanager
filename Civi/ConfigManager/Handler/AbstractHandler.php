@@ -37,9 +37,9 @@ abstract class AbstractHandler implements HandlerInterface {
     $files = [];
 
     foreach (array_intersect(array_keys($dbItems), array_keys($items)) as $filename) {
-      if ($this->fingerprint($dbItems[$filename]) !== $this->fingerprint($items[$filename])) {
-        $fileCompare = $this->normaliseDataForDiff($items[$filename]);
-        $dbCompare = $this->normaliseDataForDiff($dbItems[$filename]);
+      $fileCompare = $this->normaliseDataForDiff($items[$filename]);
+      $dbCompare = $this->normaliseDataForDiff($dbItems[$filename]);
+      if ($this->fingerprint($dbCompare) !== $this->fingerprint($fileCompare)) {
         $fieldChanges = $this->structuredChanges($fileCompare, $dbCompare);
         if ($fieldChanges) {
           $changed[] = $filename;
@@ -230,7 +230,7 @@ abstract class AbstractHandler implements HandlerInterface {
       return FALSE;
     }
     foreach ($value as $item) {
-      if (!is_array($item) || !array_key_exists('name', $item)) {
+      if (!is_array($item) || $this->listItemIdentity($item) === '') {
         return FALSE;
       }
     }
@@ -238,18 +238,49 @@ abstract class AbstractHandler implements HandlerInterface {
   }
 
   private function namedListToMap(array $list): array {
-    $map = [];
-    foreach ($list as $index => $item) {
-      if (is_array($item) && array_key_exists('name', $item)) {
-        $name = (string) $item['name'];
-        $key = $name !== '' ? $name : 'index:' . $index;
-        $map[$key] = $item;
-      }
-      else {
-        $map['index:' . $index] = $item;
+    $baseCounts = [];
+    foreach ($list as $item) {
+      if (is_array($item)) {
+        $base = $this->listItemIdentity($item);
+        if ($base !== '') {
+          $baseCounts[$base] = ($baseCounts[$base] ?? 0) + 1;
+        }
       }
     }
+
+    $map = [];
+    foreach ($list as $index => $item) {
+      if (is_array($item)) {
+        $base = $this->listItemIdentity($item);
+        if ($base !== '') {
+          $key = $base;
+          if (($baseCounts[$base] ?? 0) > 1) {
+            if (array_key_exists('value', $item) && $item['value'] !== NULL && $item['value'] !== '') {
+              $key .= '::' . (string) $item['value'];
+            }
+            elseif (array_key_exists('id', $item) && $item['id'] !== NULL && $item['id'] !== '') {
+              $key .= '::id:' . (string) $item['id'];
+            }
+            else {
+              $key .= '::index:' . $index;
+            }
+          }
+          $map[$key] = $item;
+          continue;
+        }
+      }
+      $map['index:' . $index] = $item;
+    }
     return $map;
+  }
+
+  private function listItemIdentity(array $item): string {
+    foreach (['key', 'name', 'name_a_b', 'title', 'label'] as $field) {
+      if (array_key_exists($field, $item) && $item[$field] !== NULL && $item[$field] !== '') {
+        return (string) $item[$field];
+      }
+    }
+    return '';
   }
 
   private function normaliseScalar($value): string {
