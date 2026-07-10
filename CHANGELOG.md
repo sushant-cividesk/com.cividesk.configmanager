@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha34-core
+
+- Ignored runtime numeric database IDs in generic API4 diff/export comparison so YAML exported from one database can be compared safely against another database.
+- Normalized SearchDisplay diff/export comparison to use `saved_search_id.name` instead of source database `saved_search_id` where available.
+- Removed the misleading planned-file list from the Export tab full archive panel; ZIP download represents the full current sync directory, while Export writes pending YAML changes.
+- Kept validation/import behavior from alpha33, including safer option value identity handling.
+
 ## 0.1.0-alpha33-core
 
 - Fixed validation noise for core option groups where CiviCRM legitimately reuses option value names with different stored values.

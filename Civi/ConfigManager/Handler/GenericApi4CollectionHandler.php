@@ -42,7 +42,9 @@ class GenericApi4CollectionHandler extends AbstractHandler {
   }
 
   public function export(): array {
-    $rows = $this->api4Get($this->entity, [], $this->select, $this->orderBy);
+    $rows = array_map(function($row) {
+      return $this->cleanExportRow((array) $row);
+    }, $this->api4Get($this->entity, [], $this->select, $this->orderBy));
 
     if (!$this->splitFiles) {
       return [[
@@ -59,7 +61,7 @@ class GenericApi4CollectionHandler extends AbstractHandler {
 
     $files = [];
     foreach ($rows as $row) {
-      $row = (array) $row;
+      $row = $this->cleanExportRow((array) $row);
       $identityField = $this->getIdentityField($row);
       if (!$identityField) {
         continue;
@@ -309,6 +311,35 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       }
     }
     return $row;
+  }
+
+
+  protected function normaliseDataForDiff(array $data): array {
+    return $this->stripRuntimeFields($data);
+  }
+
+  private function cleanExportRow(array $row): array {
+    return $this->stripRuntimeFields($row);
+  }
+
+  private function stripRuntimeFields(array $data): array {
+    foreach ($data as $key => $value) {
+      if (is_array($value)) {
+        $data[$key] = $this->stripRuntimeFields($value);
+      }
+    }
+
+    // Numeric IDs are database-local runtime values. They should not be used
+    // for cross-instance diff/import decisions.
+    unset($data['id']);
+
+    // SearchDisplay links to SavedSearch by numeric saved_search_id in the DB,
+    // but the stable deployment identity is saved_search_id.name.
+    if ($this->entity === 'SearchDisplay' && !empty($data['saved_search_id.name'])) {
+      unset($data['saved_search_id']);
+    }
+
+    return $data;
   }
 
   private function fileNameFor(string $name): string {

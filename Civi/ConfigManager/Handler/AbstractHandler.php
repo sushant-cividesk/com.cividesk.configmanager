@@ -38,20 +38,24 @@ abstract class AbstractHandler implements HandlerInterface {
 
     foreach (array_intersect(array_keys($dbItems), array_keys($items)) as $filename) {
       if ($this->fingerprint($dbItems[$filename]) !== $this->fingerprint($items[$filename])) {
-        $fieldChanges = $this->structuredChanges($items[$filename], $dbItems[$filename]);
+        $fileCompare = $this->normaliseDataForDiff($items[$filename]);
+        $dbCompare = $this->normaliseDataForDiff($dbItems[$filename]);
+        $fieldChanges = $this->structuredChanges($fileCompare, $dbCompare);
         if ($fieldChanges) {
           $changed[] = $filename;
-          $files[] = $this->buildDiffFile($filename, 'changed', $items[$filename], $dbItems[$filename], $fieldChanges);
+          $files[] = $this->buildDiffFile($filename, 'changed', $fileCompare, $dbCompare, $fieldChanges);
         }
       }
     }
 
     foreach ($newInDb as $filename) {
-      $files[] = $this->buildDiffFile($filename, 'new_in_db', [], $dbItems[$filename], $this->structuredChanges([], $dbItems[$filename]));
+      $dbCompare = $this->normaliseDataForDiff($dbItems[$filename]);
+      $files[] = $this->buildDiffFile($filename, 'new_in_db', [], $dbCompare, $this->structuredChanges([], $dbCompare));
     }
 
     foreach ($missingInDb as $filename) {
-      $files[] = $this->buildDiffFile($filename, 'missing_in_db', $items[$filename], [], $this->structuredChanges($items[$filename], []));
+      $fileCompare = $this->normaliseDataForDiff($items[$filename]);
+      $files[] = $this->buildDiffFile($filename, 'missing_in_db', $fileCompare, [], $this->structuredChanges($fileCompare, []));
     }
 
     $status = 'in_sync';
@@ -70,6 +74,18 @@ abstract class AbstractHandler implements HandlerInterface {
       'missing_in_db' => $missingInDb,
       'files' => $files,
     ];
+  }
+
+
+  /**
+   * Normalize data only for diff display/comparison.
+   *
+   * Export/import handlers may intentionally ignore runtime fields such as
+   * numeric database IDs. Diff must ignore the same fields so a YAML file from
+   * another database does not show false changes or imply an unsafe update.
+   */
+  protected function normaliseDataForDiff(array $data): array {
+    return $data;
   }
 
   public function validate(array $items): array {
