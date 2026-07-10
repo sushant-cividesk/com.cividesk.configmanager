@@ -27,6 +27,10 @@ class FileTransfer {
           if (empty($file['filename'])) {
             continue;
           }
+          $relativePath = trim($handler->getDirectory(), '/') . '/' . $file['filename'];
+          if ($manager->shouldIgnorePath($relativePath)) {
+            continue;
+          }
           $key = $handler->getType() . '::' . $file['filename'];
           $items[] = [
             'key' => $key,
@@ -34,7 +38,7 @@ class FileTransfer {
             'label' => $handler->getLabel(),
             'directory' => $handler->getDirectory(),
             'file' => $file['filename'],
-            'path' => trim($handler->getDirectory(), '/') . '/' . $file['filename'],
+            'path' => $relativePath,
           ];
         }
       }
@@ -56,6 +60,10 @@ class FileTransfer {
       }
       foreach ($handler->export() as $file) {
         if (($file['filename'] ?? '') === $filename) {
+          $relativePath = trim($handler->getDirectory(), '/') . '/' . $filename;
+          if ($manager->shouldIgnorePath($relativePath)) {
+            throw new RuntimeException('Selected export item is ignored by Config Ignore: ' . $relativePath);
+          }
           $yaml = SimpleYaml::dump($file['data'] ?? []);
           return [
             'key' => $key,
@@ -63,7 +71,7 @@ class FileTransfer {
             'label' => $handler->getLabel(),
             'directory' => $handler->getDirectory(),
             'file' => $filename,
-            'path' => trim($handler->getDirectory(), '/') . '/' . $filename,
+            'path' => $relativePath,
             'yaml' => $yaml,
             'download_url' => \CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=download-single&export_item=' . rawurlencode($key)),
           ];
@@ -217,7 +225,10 @@ class FileTransfer {
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
     foreach ($iterator as $file) {
       if ($file->isFile()) {
-        $relative = substr($file->getPathname(), strlen($dir) + 1);
+        $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($dir) + 1));
+        if ($manager->shouldIgnorePath($relative)) {
+          continue;
+        }
         $zip->addFile($file->getPathname(), $relative);
       }
     }

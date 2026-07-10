@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+show_help() {
+  cat <<'HELP'
+Configuration Manager CLI
+
+Usage:
+  civicfg config-export|ce [options]
+  civicfg config-import|ci [options]
+  civicfg config-diff|cd [options]
+  civicfg config-validate|cv [options]
+  civicfg status
+
+Options:
+  --type TYPE       Limit to a config type. Repeat for multiple types.
+  --dry-run         Preview only. Default for import; optional for export.
+  --write           Write YAML files for export.
+  --yes             Apply import. Required to change CiviCRM.
+  --json            Ask cv for JSON output when supported.
+  -h, --help        Show this help.
+
+Examples:
+  civicfg ce --write
+  civicfg ce --type searchkit-saved-searches --write
+  civicfg ci --dry-run
+  civicfg ci --yes
+  civicfg config-validate
+
+Short aliases:
+  ce = config-export
+  ci = config-import
+  cd = config-diff
+  cv = config-validate
+HELP
+}
+
+json_array() {
+  php -r 'echo json_encode(array_slice($argv, 1));' "$@"
+}
+
+if [[ $# -eq 0 ]]; then
+  show_help
+  exit 2
+fi
+
+command="$1"
+shift || true
+
+types=()
+dry_run=""
+yes="0"
+json="0"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --type)
+      shift
+      [[ $# -gt 0 ]] || { echo "Missing value for --type" >&2; exit 2; }
+      types+=("$1")
+      ;;
+    --type=*)
+      types+=("${1#--type=}")
+      ;;
+    --dry-run)
+      dry_run="1"
+      ;;
+    --write)
+      dry_run="0"
+      ;;
+    --yes|-y)
+      yes="1"
+      dry_run="0"
+      ;;
+    --json)
+      json="1"
+      ;;
+    -h|--help)
+      show_help
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 2
+      ;;
+  esac
+  shift || true
+done
+
+cv_args=()
+if [[ "$json" == "1" ]]; then
+  cv_args+=(--out=json)
+fi
+
+type_json="[]"
+if [[ ${#types[@]} -gt 0 ]]; then
+  type_json=$(json_array "${types[@]}")
+fi
+
+case "$command" in
+  config-export|ce)
+    [[ -n "$dry_run" ]] || dry_run="0"
+    exec cv "${cv_args[@]}" api4 ConfigManager.export dryRun="$dry_run" type="$type_json"
+    ;;
+  config-import|ci)
+    [[ -n "$dry_run" ]] || dry_run="1"
+    exec cv "${cv_args[@]}" api4 ConfigManager.import dryRun="$dry_run" yes="$yes" type="$type_json"
+    ;;
+  config-diff|cd)
+    exec cv "${cv_args[@]}" api4 ConfigManager.diff type="$type_json"
+    ;;
+  config-validate|cv)
+    exec cv "${cv_args[@]}" api4 ConfigManager.validate type="$type_json"
+    ;;
+  status)
+    exec cv "${cv_args[@]}" api4 ConfigManager.status
+    ;;
+  *)
+    echo "Unknown command: $command" >&2
+    show_help
+    exit 2
+    ;;
+esac

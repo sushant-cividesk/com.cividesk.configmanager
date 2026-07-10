@@ -268,3 +268,29 @@ See `docs/ARCHITECTURE.md` for the implementation structure and `docs/IMPLEMENTA
 - Site Tokens now have an optional handler. It exports/imports `SiteToken` API4 records when that API4 entity is available and clearly blocks import when the target site lacks the provider.
 - Custom Groups and Fields now support YAML-source deletes for missing custom fields and non-reserved missing custom groups. Option group references are resolved by `option_group_name` where possible.
 - CiviRules has an alpha handler for common CiviRules API4 entities when the CiviRules extension exposes them. This still needs real-world testing with rule triggers, conditions, actions, and extension-provided rule components.
+
+
+### CLI wrappers
+
+The extension includes dedicated command wrappers in `bin/` for teams that prefer short commands over raw API4 calls. Run them from a bootstrapped CiviCRM project where `cv` is available.
+
+```bash
+ext/com.cividesk.configmanager/bin/config-export --write
+ext/com.cividesk.configmanager/bin/ce --type searchkit-saved-searches --write
+ext/com.cividesk.configmanager/bin/config-import --dry-run
+ext/com.cividesk.configmanager/bin/ci --yes
+ext/com.cividesk.configmanager/bin/config-diff
+ext/com.cividesk.configmanager/bin/config-validate
+```
+
+The wrappers call the same API4 backend as the UI, so dependency expansion, Config Ignore, validation, and import safety rules are shared.
+
+### Config Ignore
+
+Config Ignore accepts one relative YAML path or wildcard per line. Ignored files are skipped during diff, validate, export, import, single-file preview, and ZIP download. Do not ignore a YAML file that is a dependency of a non-ignored YAML file. Validation will show a dependency warning or error when it can detect this situation.
+
+`extensions/com.cividesk.configmanager.yml` is ignored by default to avoid self-management loops while the extension is running an import.
+
+### Environment workflow
+
+The safest target workflow is one site codebase moving configuration between its own environments: dev, stage, and production. Cross-site imports are possible but require extra review because extensions, sample data, IDs, and contributed-extension defaults can differ between sites.

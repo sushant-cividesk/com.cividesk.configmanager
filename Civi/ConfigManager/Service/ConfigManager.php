@@ -327,7 +327,7 @@ class ConfigManager {
       }
       try {
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
-        $result['items'][] = $handler->diff($files);
+        $result['items'][] = $this->filterIgnoredDiffItem($handler->diff($files));
       }
       catch (\Throwable $e) {
         $result['errors'][] = ['type' => $handler->getType(), 'message' => $e->getMessage()];
@@ -394,14 +394,43 @@ class ConfigManager {
           if (!isset($available[$dependencyType][$dependencyName])) {
             $result['ok'] = FALSE;
             $reason = (string) ($dependency['reason'] ?? 'This YAML item references another managed config item.');
+            $ignoredHint = $this->ignoredDependencyHint($dependencyType, $dependencyName);
+            $message = sprintf('Cannot import %s because required dependency %s "%s" is missing from YAML. %s Re-export the related items together, or restore the missing YAML file before importing.', $filename, $dependencyType, $dependencyName, $reason);
+            if ($ignoredHint !== '') {
+              $message .= ' The dependency appears to be hidden by Config Ignore: ' . $ignoredHint . '. Remove or narrow that ignore rule before importing this item.';
+            }
             $result['items'][$itemIndex[$type]]['errors'][] = [
               'file' => $filename,
-              'message' => sprintf('Cannot import %s because required dependency %s "%s" is missing from YAML. %s Re-export the related items together, or restore the missing YAML file before importing.', $filename, $dependencyType, $dependencyName, $reason),
+              'message' => $message,
             ];
           }
         }
       }
     }
+  }
+
+  private function ignoredDependencyHint(string $type, string $name): string {
+    foreach ($this->dependencyCandidatePaths($type, $name) as $path) {
+      if ($this->isIgnoredPath($path)) {
+        return $path;
+      }
+    }
+    return '';
+  }
+
+  private function dependencyCandidatePaths(string $type, string $name): array {
+    $safe = preg_replace('/[^A-Za-z0-9_.-]+/', '-', $name);
+    $safe = trim((string) $safe, '-') ?: sha1($name);
+    $map = [
+      'extensions' => ['extensions/' . $safe . '.yml'],
+      'searchkit-saved-searches' => ['searchkit/saved-searches/' . $safe . '.yml'],
+      'searchkit-displays' => ['searchkit/displays/' . $safe . '.yml', 'searchkit/displays/*__' . $safe . '.yml'],
+      'formbuilder-afforms' => ['formbuilder/afforms/' . $safe . '.yml'],
+      'scheduled-jobs' => ['scheduled-jobs/' . $safe . '.yml'],
+      'site-tokens' => ['site-tokens/' . $safe . '.yml'],
+      'civirules' => ['civirules/' . $safe . '.yml', 'civirules/*/' . $safe . '.yml'],
+    ];
+    return $map[$type] ?? [$type . '/' . $safe . '.yml'];
   }
 
   private function collectManagedYamlNames(array $yamlByType): array {
@@ -565,6 +594,39 @@ class ConfigManager {
       $filtered[$filename] = $data;
     }
     return $filtered;
+  }
+
+  private function filterIgnoredDiffItem(array $item): array {
+    $ignoredFiles = [];
+    $files = [];
+    foreach (($item['files'] ?? []) as $file) {
+      $path = (string) ($file['path'] ?? '');
+      if ($path !== '' && $this->isIgnoredPath($path)) {
+        $ignoredFiles[(string) ($file['file'] ?? basename($path))] = TRUE;
+        continue;
+      }
+      $files[] = $file;
+    }
+    $item['files'] = $files;
+
+    foreach (['changed', 'new_in_db', 'missing_in_db'] as $bucket) {
+      $values = [];
+      foreach (($item[$bucket] ?? []) as $filename) {
+        if (!isset($ignoredFiles[(string) $filename])) {
+          $values[] = $filename;
+        }
+      }
+      $item[$bucket] = $values;
+    }
+
+    if (empty($item['changed']) && empty($item['new_in_db']) && empty($item['missing_in_db'])) {
+      $item['status'] = 'in_sync';
+    }
+    return $item;
+  }
+
+  public function shouldIgnorePath(string $relativePath): bool {
+    return $this->isIgnoredPath($relativePath);
   }
 
   private function isIgnoredPath(string $relativePath): bool {

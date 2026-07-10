@@ -9,7 +9,7 @@
     <email>sushant@cividesk.com</email>
   </maintainer>
   <releaseDate>2026-07-06</releaseDate>
-  <version>0.1.0-alpha37-core</version>
+  <version>0.1.0-alpha38-core</version>
   <develStage>alpha</develStage>
   <compatibility>
     <ver>5.0</ver>
@@ -18,5 +18,5 @@
   <mixins>
     <mixin>scan-classes@1.0.0</mixin>
   </mixins>
-  <comments>Alpha core build: config-ignore support, safer SearchDisplay conflict matching, default self-extension ignore, and clearer import diagnostics.</comments>
+  <comments>Alpha core build: stronger Config Ignore behavior, CLI wrappers, ignored-file filtering across UI/export/download/import, and dependency warnings for ignored files.</comments>
 </extension>

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.0-alpha38-core
+
+- Added dedicated CLI wrapper scripts under `bin/`:
+  - `bin/civicfg ce` / `bin/config-export`
+  - `bin/civicfg ci` / `bin/config-import`
+  - `bin/civicfg cd` / `bin/config-diff`
+  - `bin/civicfg config-validate`
+- Improved Config Ignore behavior so ignored YAML files are hidden from diff, validate, import, export, single-file preview, and ZIP download.
+- Added clearer warnings when ignored files may hide dependencies needed by non-ignored YAML.
+- Filtered ignored DB-only diff entries, including the default self-ignore for `extensions/com.cividesk.configmanager.yml`.
+- Documented that Configuration Manager is intended to work smoothly for the same site codebase across dev/stage/prod, while cross-site imports may still need careful review.
+
+
 ## 0.1.0-alpha37-core
 
 - Added Config Ignore settings for relative YAML paths/wildcards, similar to Drupal config ignore. Ignored files are skipped during diff, validate, export, and import.

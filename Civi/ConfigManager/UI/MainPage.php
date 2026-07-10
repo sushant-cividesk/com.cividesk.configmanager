@@ -65,6 +65,10 @@ class MainPage {
       elseif ($postAction === 'save_settings') {
         $this->saveSettings();
         \CRM_Core_Session::setStatus(ts('Configuration Manager settings saved.'), ts('Saved'), 'success');
+        $ignoreRaw = trim((string) ($_POST['ignore_paths'] ?? ''));
+        if ($ignoreRaw !== '') {
+          \CRM_Core_Session::setStatus(ts('Config Ignore is active. Ignored YAML files are skipped during diff, validate, export, import, single-file preview, and ZIP download. Make sure ignored files are not required dependencies for non-ignored configuration.'), ts('Configuration Manager'), 'warning');
+        }
         \CRM_Utils_System::redirect(\CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=settings'));
       }
       elseif ($postAction === 'export_write') {
