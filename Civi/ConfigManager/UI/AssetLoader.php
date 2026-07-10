@@ -1,5 +1,6 @@
 <?php
 namespace Civi\ConfigManager\UI;
+use Civi\ConfigManager\Version;
 
 /**
  * Loads Configuration Manager UI assets through CiviCRM.
@@ -8,12 +9,11 @@ namespace Civi\ConfigManager\UI;
  * and hidden modal markup are stable before the external CSS request finishes.
  */
 class AssetLoader {
-  public const EXTENSION_KEY = 'com.cividesk.configmanager';
 
   public function addResources(): void {
     $resources = \CRM_Core_Resources::singleton();
     $this->addStyleFileEarly($resources, 'css/configmanager.css');
-    $resources->addScriptFile(self::EXTENSION_KEY, 'js/configmanager.js');
+    $resources->addScriptFile(Version::EXTENSION_KEY, 'js/configmanager.js');
   }
 
   public function getCriticalCss(): string {
@@ -30,17 +30,17 @@ class AssetLoader {
       $method = new \ReflectionMethod($resources, 'addStyleFile');
       $paramCount = $method->getNumberOfParameters();
       if ($paramCount >= 4) {
-        $resources->addStyleFile(self::EXTENSION_KEY, $file, -1000, 'html-header');
+        $resources->addStyleFile(Version::EXTENSION_KEY, $file, -1000, 'html-header');
       }
       elseif ($paramCount >= 3) {
-        $resources->addStyleFile(self::EXTENSION_KEY, $file, -1000);
+        $resources->addStyleFile(Version::EXTENSION_KEY, $file, -1000);
       }
       else {
-        $resources->addStyleFile(self::EXTENSION_KEY, $file);
+        $resources->addStyleFile(Version::EXTENSION_KEY, $file);
       }
     }
     catch (\Throwable $e) {
-      $resources->addStyleFile(self::EXTENSION_KEY, $file);
+      $resources->addStyleFile(Version::EXTENSION_KEY, $file);
     }
   }
 }

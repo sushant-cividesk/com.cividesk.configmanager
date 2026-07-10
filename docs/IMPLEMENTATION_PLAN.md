@@ -135,3 +135,9 @@ When there are no differences, the status check may show an informational in-syn
 ## Alpha33 validation note
 
 Option group value validation allows CiviCRM core data where option value names may be reused with different stored values. Custom field option group references should be exported by `option_group_name` where possible so YAML is portable between environments; legacy numeric `option_group_id` YAML remains accepted for compatibility.
+
+## Alpha37 decisions
+
+- Add Config Ignore before broader extension-specific configuration support. This lets teams intentionally exclude environment-specific or self-referential YAML.
+- SearchDisplay identity is treated as `saved_search_id.name + name` because display names such as `Table` are not globally unique.
+- Existing-record conflicts that can be matched safely should produce warnings rather than hard errors, so imports can finish without creating duplicates.

@@ -278,6 +278,10 @@ class ConfigManager {
       try {
         foreach ($handler->export() as $file) {
           $relative = trim($handler->getDirectory(), '/') . '/' . $file['filename'];
+          if ($this->isIgnoredPath($relative)) {
+            $summary['skipped'][] = $relative . ' (ignored)';
+            continue;
+          }
           $isSame = $storage->isSame($handler->getDirectory(), $file['filename'], $file['data']);
           if ($dryRun) {
             if (!$isSame) {
@@ -322,7 +326,7 @@ class ConfigManager {
         continue;
       }
       try {
-        $files = $storage->readDirectory($handler->getDirectory());
+        $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
         $result['items'][] = $handler->diff($files);
       }
       catch (\Throwable $e) {
@@ -342,7 +346,7 @@ class ConfigManager {
         continue;
       }
       try {
-        $files = $storage->readDirectory($handler->getDirectory());
+        $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
         $yamlByType[$handler->getType()] = $files;
         $validation = $handler->validate($files);
         $result['items'][] = $validation;
@@ -479,7 +483,7 @@ class ConfigManager {
       // SearchDisplay still exists and is scheduled for deletion in the same run.
       foreach ($handlers as $handler) {
         $this->setHandlerImportPhase($handler, TRUE, FALSE);
-        $files = $storage->readDirectory($handler->getDirectory());
+        $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
         $item = $handler->import($files, FALSE);
         $item['phase'] = 'create_update';
         $result['items'][] = $item;
@@ -489,7 +493,7 @@ class ConfigManager {
       }
       foreach (array_reverse($handlers) as $handler) {
         $this->setHandlerImportPhase($handler, FALSE, TRUE);
-        $files = $storage->readDirectory($handler->getDirectory());
+        $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
         $item = $handler->import($files, FALSE);
         $item['phase'] = 'delete_missing';
         $result['items'][] = $item;
@@ -504,7 +508,7 @@ class ConfigManager {
 
     foreach ($handlers as $handler) {
       $this->setHandlerImportPhase($handler, TRUE, TRUE);
-      $files = $storage->readDirectory($handler->getDirectory());
+      $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
       $item = $handler->import($files, $dryRun || !$yes);
       $result['items'][] = $item;
       if (!empty($item['errors'])) {
@@ -535,6 +539,50 @@ class ConfigManager {
     if (method_exists($handler, 'setDeleteMissingEnabled')) {
       $handler->setDeleteMissingEnabled($deleteEnabled);
     }
+  }
+
+  public function getIgnorePatterns(): array {
+    $configured = (array) \Civi::settings()->get('civicfg_ignore_paths');
+    $defaults = [
+      // Avoid self-management loops. Teams may remove this in settings if they
+      // intentionally want Configuration Manager to manage its own extension state.
+      'extensions/' . Version::EXTENSION_KEY . '.yml',
+    ];
+    $patterns = array_merge($defaults, $configured);
+    $patterns = array_values(array_unique(array_filter(array_map(function($pattern) {
+      return trim(str_replace('\\', '/', (string) $pattern));
+    }, $patterns))));
+    return $patterns;
+  }
+
+  private function filterIgnoredFiles(string $directory, array $files): array {
+    $filtered = [];
+    foreach ($files as $filename => $data) {
+      $relative = trim($directory, '/') . '/' . ltrim((string) $filename, '/');
+      if ($this->isIgnoredPath($relative)) {
+        continue;
+      }
+      $filtered[$filename] = $data;
+    }
+    return $filtered;
+  }
+
+  private function isIgnoredPath(string $relativePath): bool {
+    $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
+    foreach ($this->getIgnorePatterns() as $pattern) {
+      $pattern = trim(str_replace('\\', '/', (string) $pattern), '/');
+      if ($pattern === '') {
+        continue;
+      }
+      if ($relativePath === $pattern) {
+        return TRUE;
+      }
+      $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/';
+      if (preg_match($regex, $relativePath)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
 

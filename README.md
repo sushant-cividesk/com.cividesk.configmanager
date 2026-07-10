@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha36-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha37-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -73,6 +73,9 @@ Settings include:
 - Sync Directory
 - Managed Types
 - Settings Allowlist
+- Config Ignore
+
+Config Ignore accepts one relative YAML path or wildcard per line. Ignored files are skipped during diff, validate, export, and import. `extensions/com.cividesk.configmanager.yml` is ignored by default to avoid self-management loops; remove it only if you intentionally want this extension to manage its own extension status.
 
 Leaving Managed Types unchecked means all supported handlers are managed. If Managed Types is changed to a subset after YAML files already exist, the old YAML files are left on disk but ignored by status, diff, export, validate, and import until that type is enabled again. The extension does not delete those files automatically.
 
@@ -147,6 +150,8 @@ Current export/diff/validate support includes:
 - SearchKit Saved Searches
 - SearchKit Displays
 - FormBuilder Afforms
+- Site Tokens, when `SiteToken` API4 exists
+- CiviRules, alpha support when CiviRules API4 entities exist
 
 Current create/update import support includes:
 
@@ -164,6 +169,8 @@ Current create/update import support includes:
 - SearchKit Saved Searches
 - SearchKit Displays
 - FormBuilder Afforms
+- Site Tokens, when `SiteToken` API4 exists
+- CiviRules, alpha support when CiviRules API4 entities exist
 
 Payment Processors remain export/diff only because exported data is sanitized and may omit environment-specific or secret values.
 
@@ -172,12 +179,13 @@ Payment Processors remain export/diff only because exported data is sanitized an
 Most stable config types are stored as collection files, for example `extensions/extensions.yml` or `option-groups/*.yml`. High-churn config types are stored as one YAML file per item:
 
 - `searchkit/saved-searches/<name>.yml`
-- `searchkit/displays/<name>.yml`
+- `searchkit/displays/<saved-search>__<display>.yml` for new exports, with older `<display>.yml` files still accepted
 - `formbuilder/afforms/<name>.yml`
 - `scheduled-jobs/<name>.yml`
 - `message-templates/system/<name>.yml`
 - `message-templates/user/<name>.yml`
 - `custom-data/groups/<name>.yml`
+- `extensions/<extension-key>.yml`
 
 Each split file uses `type: <handler>.item`, stores the editable record under `item`, and includes a `dependencies` section where dependencies are detectable. Collection files use `type: <handler>.collection` and an `items` list. Existing collection files for these handlers are still accepted for import, but the current export format rewrites them as split files.
 
@@ -197,6 +205,7 @@ The export manifest is written to `manifest.yml`. Its `exported_with` value is r
 - Split item files include dependency metadata where the extension can detect it. SearchDisplay files declare their SavedSearch dependency; SavedSearch files declare related SearchDisplays; Afform files declare referenced SearchKit displays where detectable.
 - Custom field exports store `option_group_name` instead of numeric `option_group_id` where possible, so YAML is safer across environments. Legacy YAML with numeric option group IDs is still accepted during validation/import.
 - Option values are validated using the full option value entry, not just the `name` field, because some core CiviCRM option groups legitimately reuse option value names with different stored values.
+- Config Ignore can be used to intentionally leave environment-specific YAML files unmanaged.
 - Temporary filtered exports include related dependency-sensitive config types automatically. For example, SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together because they commonly reference each other. Custom Groups and Fields can include Option Groups and Contact Types. Relationship Types can include Contact Types. The UI warns before exporting a filtered set when dependency types will be added, and the confirmation uses `EXPORT` to distinguish it from destructive imports.
 - After a filtered export, the UI clears the temporary filter and reloads the full managed diff to avoid showing a misleading In Sync state for only the filtered subset. POST actions redirect after completion, so browser refresh does not resubmit export/import forms.
 
@@ -242,6 +251,14 @@ Important source areas:
 
 See `docs/ARCHITECTURE.md` for the implementation structure and `docs/IMPLEMENTATION_PLAN.md` for current technical decisions.
 
+
+## Alpha37 Notes
+
+- Added Config Ignore to skip selected YAML files from diff, validate, export, and import. This is useful for environment-specific configuration and for avoiding self-management of this extension.
+- `extensions/com.cividesk.configmanager.yml` is ignored by default. Exporting this extension's own status can create a circular dependency because the extension must stay enabled to finish imports.
+- SearchDisplay import now uses `saved_search_id.name + name` as the stable identity. This avoids duplicate `Table` display failures when a target site already has extension-provided SearchKit displays.
+- New SearchDisplay exports include the SavedSearch name in the filename to avoid collisions. Older display filenames are still read.
+- Already-existing records are treated as warnings when they can be matched safely instead of as hard errors.
 
 ## Alpha36 Notes
 

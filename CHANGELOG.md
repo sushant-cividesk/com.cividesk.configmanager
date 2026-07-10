@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-alpha37-core
+
+- Added Config Ignore settings for relative YAML paths/wildcards, similar to Drupal config ignore. Ignored files are skipped during diff, validate, export, and import.
+- Ignored `extensions/com.cividesk.configmanager.yml` by default to avoid self-management loops when Configuration Manager exports extension status.
+- Improved SearchDisplay import matching with composite identity `saved_search_id.name + name`, so extension-provided displays like `Table` can be matched instead of causing duplicate/already-exists failures.
+- SearchDisplay split exports now use `SavedSearch__Display.yml` filenames for new exports to avoid collisions where multiple searches have a display with the same name.
+- Downgraded already-exists create conflicts to warnings when the target record can be matched safely after the conflict.
+- Improved relationship type matching fallback by labels when machine names differ, with warnings for review.
+- Updated import result handling so a non-blocking issue does not leave a scary error state when no pending diff remains.
+
 ## 0.1.0-alpha36-core
 
 - Exported extensions as one YAML file per extension key to prepare for future extension-specific config grouping.

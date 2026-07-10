@@ -168,3 +168,7 @@ When defined in `civicrm.settings.php`, the UI treats the sync directory as envi
 ## Alpha33 validation note
 
 Option group value validation allows CiviCRM core data where option value names may be reused with different stored values. Custom field option group references should be exported by `option_group_name` where possible so YAML is portable between environments; legacy numeric `option_group_id` YAML remains accepted for compatibility.
+
+## Config ignore
+
+`civicfg_ignore_paths` stores relative YAML paths or simple wildcard patterns that are skipped by diff, validate, export, and import. The service also ignores `extensions/com.cividesk.configmanager.yml` by default to avoid self-management loops while the extension is running imports.

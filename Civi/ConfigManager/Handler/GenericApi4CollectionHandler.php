@@ -68,7 +68,7 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       }
       $name = (string) $row[$identityField];
       $files[] = [
-        'filename' => $this->fileNameFor($name),
+        'filename' => $this->fileNameForRow($row, $name),
         'data' => [
           'schema_version' => 1,
           'type' => $this->type . '.item',
@@ -177,7 +177,7 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       }
 
       $identityValue = (string) $row[$identityField];
-      $desiredKeys[$this->identityKey($identityField, $identityValue)] = TRUE;
+      $desiredKeys[$this->identityKeyForRow($row, $identityField, $identityValue)] = TRUE;
       $identityFields[$identityField] = TRUE;
 
       if (!$this->importWritesEnabled) {
@@ -186,22 +186,36 @@ class GenericApi4CollectionHandler extends AbstractHandler {
 
       try {
         $desired = $this->cleanImportValues($row);
-        $existing = $this->api4GetFirst($this->entity, [[$identityField, '=', $identityValue]], ['*']);
+        $existing = $this->findExistingRow($identityField, $identityValue, $row, $desired, $summary, $filename);
         if ($existing) {
-          if ($this->desiredDiffers($existing, $desired)) {
-            $summary['update']++;
-            if (!$dryRun) {
-              $this->api4Update($this->entity, [['id', '=', $existing['id']]], $desired);
-            }
-          }
-          else {
-            $summary['skip']++;
-          }
+          $this->applyExistingRow($existing, $desired, $dryRun, $summary);
         }
         else {
           $summary['create']++;
           if (!$dryRun) {
-            $this->api4Create($this->entity, $desired);
+            try {
+              $this->api4Create($this->entity, $desired);
+            }
+            catch (\Throwable $createError) {
+              if ($this->isAlreadyExistsError($createError)) {
+                $existing = $this->findExistingRow($identityField, $identityValue, $row, $desired, $summary, $filename, TRUE);
+                if ($existing) {
+                  $summary['create']--;
+                  $summary['warnings'][] = [
+                    'file' => $filename,
+                    'name' => $identityValue,
+                    'message' => $this->entity . ' already existed on the target site, so import matched the existing record instead of creating a duplicate: ' . $identityValue,
+                  ];
+                  $this->applyExistingRow($existing, $desired, $dryRun, $summary);
+                }
+                else {
+                  throw $createError;
+                }
+              }
+              else {
+                throw $createError;
+              }
+            }
           }
         }
       }
@@ -209,7 +223,7 @@ class GenericApi4CollectionHandler extends AbstractHandler {
         $summary['errors'][] = [
           'file' => $filename,
           'name' => $identityValue,
-          'message' => $e->getMessage(),
+          'message' => $this->formatImportException($e, $filename, $identityValue),
         ];
       }
     }
@@ -231,7 +245,10 @@ class GenericApi4CollectionHandler extends AbstractHandler {
       return;
     }
     $select = array_values(array_unique(array_merge(['id'], $identityFields)));
-    $existingRows = $this->api4Get($this->entity, [], $select, $this->orderBy);
+    if ($this->entity === 'SearchDisplay' && in_array('saved_search_id.name', $this->select, TRUE)) {
+      $select[] = 'saved_search_id.name';
+    }
+    $existingRows = $this->api4Get($this->entity, [], array_values(array_unique($select)), $this->orderBy);
     foreach ($existingRows as $existing) {
       $existing = (array) $existing;
       if (empty($existing['id'])) {
@@ -242,7 +259,7 @@ class GenericApi4CollectionHandler extends AbstractHandler {
         continue;
       }
       $identityValue = (string) $existing[$identityField];
-      if (isset($desiredKeys[$this->identityKey($identityField, $identityValue)])) {
+      if (isset($desiredKeys[$this->identityKeyForRow($existing, $identityField, $identityValue)])) {
         continue;
       }
       $summary['delete']++;
@@ -266,6 +283,79 @@ class GenericApi4CollectionHandler extends AbstractHandler {
 
   private function identityKey(string $field, string $value): string {
     return $field . ':' . $value;
+  }
+
+  private function identityKeyForRow(array $row, string $field, string $value): string {
+    if ($this->entity === 'SearchDisplay') {
+      $savedSearchName = (string) ($row['saved_search_id.name'] ?? '');
+      if ($savedSearchName !== '') {
+        return 'saved_search_id.name:' . $savedSearchName . '|name:' . $value;
+      }
+      if (!empty($row['saved_search_id'])) {
+        return 'saved_search_id:' . (string) $row['saved_search_id'] . '|name:' . $value;
+      }
+    }
+    return $this->identityKey($field, $value);
+  }
+
+  private function findExistingRow(string $identityField, string $identityValue, array $sourceRow, array $desired, array &$summary, string $filename, bool $afterCreateConflict = FALSE): ?array {
+    if ($this->entity === 'SearchDisplay') {
+      $where = [['name', '=', $identityValue]];
+      if (!empty($desired['saved_search_id'])) {
+        $where[] = ['saved_search_id', '=', (int) $desired['saved_search_id']];
+      }
+      $existing = $this->api4GetFirst($this->entity, $where, ['*']);
+      if ($existing) {
+        return $existing;
+      }
+    }
+
+    $existing = $this->api4GetFirst($this->entity, [[$identityField, '=', $identityValue]], ['*']);
+    if ($existing) {
+      return $existing;
+    }
+
+    if ($this->entity === 'RelationshipType') {
+      $labelAB = (string) ($desired['label_a_b'] ?? $sourceRow['label_a_b'] ?? '');
+      $labelBA = (string) ($desired['label_b_a'] ?? $sourceRow['label_b_a'] ?? '');
+      if ($labelAB !== '' && $labelBA !== '') {
+        $existing = $this->api4GetFirst($this->entity, [['label_a_b', '=', $labelAB], ['label_b_a', '=', $labelBA]], ['*']);
+        if ($existing) {
+          $summary['warnings'][] = [
+            'file' => $filename,
+            'name' => $identityValue,
+            'message' => 'Relationship type matched an existing CiviCRM record by labels because the machine name differed. Review this before deploying to production: ' . $labelAB . ' / ' . $labelBA,
+          ];
+          return $existing;
+        }
+      }
+    }
+
+    return NULL;
+  }
+
+  private function applyExistingRow(array $existing, array $desired, bool $dryRun, array &$summary): void {
+    if ($this->desiredDiffers($existing, $desired)) {
+      $summary['update']++;
+      if (!$dryRun) {
+        $this->api4Update($this->entity, [['id', '=', $existing['id']]], $desired);
+      }
+    }
+    else {
+      $summary['skip']++;
+    }
+  }
+
+  private function isAlreadyExistsError(\Throwable $e): bool {
+    return stripos($e->getMessage(), 'already exists') !== FALSE || stripos($e->getMessage(), 'duplicate') !== FALSE;
+  }
+
+  private function formatImportException(\Throwable $e, string $filename, string $identityValue): string {
+    $message = $e->getMessage();
+    if ($this->isAlreadyExistsError($e)) {
+      return 'Target already has a conflicting ' . $this->entity . ' record for ' . $identityValue . '. Check ' . $filename . ' and any extension-provided SearchKit/FormBuilder records. Import skipped this item to avoid creating duplicates. Original error: ' . $message;
+    }
+    return $message;
   }
 
   private function expandFilesToRows(array $items, array &$summary): array {
@@ -342,13 +432,17 @@ class GenericApi4CollectionHandler extends AbstractHandler {
     return $data;
   }
 
-  private function fileNameFor(string $name): string {
+  private function fileNameForRow(array $row, string $name): string {
+    if ($this->entity === 'SearchDisplay' && !empty($row['saved_search_id.name'])) {
+      return $this->safeFilePart((string) $row['saved_search_id.name']) . '__' . $this->safeFilePart($name) . '.yml';
+    }
+    return $this->safeFilePart($name) . '.yml';
+  }
+
+  private function safeFilePart(string $name): string {
     $safe = preg_replace('/[^A-Za-z0-9_.-]+/', '-', $name);
     $safe = trim((string) $safe, '-');
-    if ($safe === '') {
-      $safe = sha1($name);
-    }
-    return $safe . '.yml';
+    return $safe === '' ? sha1($name) : $safe;
   }
 
   private function collectionDependencies(array $rows): array {

@@ -81,3 +81,9 @@ For handlers that support create/update import, delete a non-critical test recor
 ## Alpha33 validation note
 
 Option group value validation allows CiviCRM core data where option value names may be reused with different stored values. Custom field option group references should be exported by `option_group_name` where possible so YAML is portable between environments; legacy numeric `option_group_id` YAML remains accepted for compatibility.
+
+## Alpha37 tests
+
+- Export a SearchKit display named `Table` under a saved search, reinstall the site, then import. Confirm it matches by saved search name plus display name and does not fail with an already-exists error.
+- Confirm `extensions/com.cividesk.configmanager.yml` is ignored by default in Synchronize, Validate, Export, and Import.
+- Add a path to Config Ignore and confirm it is excluded from changed-file and import previews.

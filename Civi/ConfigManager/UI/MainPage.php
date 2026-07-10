@@ -101,8 +101,14 @@ class MainPage {
         }
         else {
           $firstProblem = $this->presenter->firstImportProblem($importResult);
-          $notice = trim(ts('Import found problems.') . ' ' . ($firstProblem ?: ts('Review the warnings or errors below.')) . ' ' . $summaryMessage);
-          $type = 'error';
+          if ($remaining === 0) {
+            $notice = trim(ts('Import completed with non-blocking issue(s), and no pending configuration changes remain.') . ' ' . ($firstProblem ?: '') . ' ' . $summaryMessage);
+            $type = 'warning';
+          }
+          else {
+            $notice = trim(ts('Import found problems.') . ' ' . ($firstProblem ?: ts('Review the warnings or errors below.')) . ' ' . $summaryMessage);
+            $type = 'error';
+          }
         }
         $this->redirectWithNotice($notice, 'sync', $type);
       }
@@ -252,6 +258,13 @@ class MainPage {
     $allowlist = preg_split('/[\r\n,]+/', $allowlistRaw);
     $allowlist = array_values(array_unique(array_filter(array_map('trim', $allowlist))));
     \Civi::settings()->set('civicfg_settings_allowlist', $allowlist);
+
+    $ignoreRaw = (string) ($_POST['ignore_paths'] ?? '');
+    $ignorePaths = preg_split('/[\r\n,]+/', $ignoreRaw);
+    $ignorePaths = array_values(array_unique(array_filter(array_map(function($value) {
+      return trim(str_replace('\\', '/', (string) $value), '/');
+    }, $ignorePaths))));
+    \Civi::settings()->set('civicfg_ignore_paths', $ignorePaths);
   }
 
 
@@ -277,6 +290,7 @@ class MainPage {
     $allTypes = $this->presenter->buildTypeRows($this->manager, $diffResult);
     $enabledTypes = (array) \Civi::settings()->get('civicfg_enabled_types');
     $settingsAllowlist = (array) \Civi::settings()->get('civicfg_settings_allowlist');
+    $ignorePaths = $this->manager->getIgnorePatterns();
     $diffFiles = $this->presenter->extractDiffFiles($diffResult);
     $importPlan = $this->presenter->buildImportPlan($diffFiles);
     $importApplyTypes = $this->presenter->getImportApplyTypes($importPlan);
@@ -363,6 +377,7 @@ class MainPage {
     $this->page->assign('enabledTypes', $enabledTypes);
     $this->page->assign('enabledTypesMap', $enabledTypesMap);
     $this->page->assign('settingsAllowlist', implode("\n", $settingsAllowlist));
+    $this->page->assign('ignorePaths', implode("\n", $ignorePaths));
     $codeDefinedSyncDir = $this->getCodeDefinedSyncDir();
     $savedSyncDir = trim((string) \Civi::settings()->get('civicfg_sync_dir'));
     if ($savedSyncDir === '' || $savedSyncDir === '../civicrm-config') {

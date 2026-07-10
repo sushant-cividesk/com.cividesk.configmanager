@@ -34,6 +34,13 @@
             <p class="description">{ts}Only these CiviCRM settings are exported. Add one setting name per line. Do not add secrets.{/ts}</p>
           </td>
         </tr>
+        <tr>
+          <td class="label"><label for="ignore_paths">{ts}Config Ignore{/ts}</label></td>
+          <td>
+            <textarea id="ignore_paths" name="ignore_paths" class="crm-form-textarea">{$ignorePaths|escape}</textarea>
+            <p class="description">{ts}One relative YAML path or wildcard per line. Ignored files are skipped during diff, validate, export, and import. The Configuration Manager extension YAML is ignored by default to avoid self-management loops; remove that line only if you intentionally want to manage this extension state from YAML.{/ts}</p>
+          </td>
+        </tr>
       </table>
       <div class="crm-submit-buttons"><button type="submit" class="button"><span>{ts}Save{/ts}</span></button></div>
     </form>
