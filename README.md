@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha34-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha36-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -241,3 +241,13 @@ Important source areas:
 - `js/configmanager.js` - vanilla JavaScript interactions.
 
 See `docs/ARCHITECTURE.md` for the implementation structure and `docs/IMPLEMENTATION_PLAN.md` for current technical decisions.
+
+
+## Alpha36 Notes
+
+- Extension status is now exported as one YAML file per extension key under `extensions/`, instead of one large collection file. This makes future extension-specific config files easier to review and group.
+- Import/export/validate/settings forms show a full-page progress overlay and disable controls while the request is running, which helps prevent double submits.
+- Import failures are saved across the post/redirect/get flow so the next page can show the exact handler/file error instead of only a generic toast.
+- Site Tokens now have an optional handler. It exports/imports `SiteToken` API4 records when that API4 entity is available and clearly blocks import when the target site lacks the provider.
+- Custom Groups and Fields now support YAML-source deletes for missing custom fields and non-reserved missing custom groups. Option group references are resolved by `option_group_name` where possible.
+- CiviRules has an alpha handler for common CiviRules API4 entities when the CiviRules extension exposes them. This still needs real-world testing with rule triggers, conditions, actions, and extension-provided rule components.

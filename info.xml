@@ -9,7 +9,7 @@
     <email>sushant@cividesk.com</email>
   </maintainer>
   <releaseDate>2026-07-06</releaseDate>
-  <version>0.1.0-alpha35-core</version>
+  <version>0.1.0-alpha36-core</version>
   <develStage>alpha</develStage>
   <compatibility>
     <ver>5.0</ver>
@@ -18,5 +18,5 @@
   <mixins>
     <mixin>scan-classes@1.0.0</mixin>
   </mixins>
-  <comments>Alpha core build: validation cleanup for option/custom-data YAML, stable option group dependencies, and safer import identity handling.</comments>
+  <comments>Alpha core build: per-extension YAML files, progress overlay, clearer import diagnostics, site-token scaffolding, custom-data delete support, and alpha CiviRules support.</comments>
 </extension>

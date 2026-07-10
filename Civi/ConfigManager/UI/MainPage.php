@@ -35,6 +35,11 @@ class MainPage {
     $notice = NULL;
     $validationResult = NULL;
     $importResult = NULL;
+    $sessionImportResult = \CRM_Core_Session::singleton()->get('civicfg_last_import_result');
+    if (is_array($sessionImportResult)) {
+      $importResult = $sessionImportResult;
+      \CRM_Core_Session::singleton()->set('civicfg_last_import_result', NULL);
+    }
     $result = [];
 
     $this->permission->requireForPage($op, $postAction);
@@ -82,18 +87,21 @@ class MainPage {
       elseif ($postAction === 'import_apply') {
         $importTypes = $this->request->getSelectedTypes();
         $importResult = $this->manager->import(FALSE, TRUE, $importTypes ?: []);
+        \CRM_Core_Session::singleton()->set('civicfg_last_import_result', $importResult);
         $afterDiff = $this->manager->diff([]);
         $remaining = $this->presenter->countDiffChanges($afterDiff);
+        $summaryMessage = (string) ($importResult['summary_message'] ?? '');
         if (!empty($importResult['ok']) && $remaining === 0) {
-          $notice = ts('Import complete. YAML files and active CiviCRM configuration now match.');
+          $notice = trim(ts('Import complete. YAML files and active CiviCRM configuration now match.') . ' ' . $summaryMessage);
           $type = 'success';
         }
         elseif (!empty($importResult['ok'])) {
-          $notice = ts('Import ran, but %1 pending change(s) remain. Review the remaining changes below.', [1 => $remaining]);
+          $notice = trim(ts('Import ran, but %1 pending change(s) remain. Review the remaining changes below.', [1 => $remaining]) . ' ' . $summaryMessage);
           $type = 'warning';
         }
         else {
-          $notice = ts('Import found problems. Review the warnings or errors below.');
+          $firstProblem = $this->presenter->firstImportProblem($importResult);
+          $notice = trim(ts('Import found problems.') . ' ' . ($firstProblem ?: ts('Review the warnings or errors below.')) . ' ' . $summaryMessage);
           $type = 'error';
         }
         $this->redirectWithNotice($notice, 'sync', $type);

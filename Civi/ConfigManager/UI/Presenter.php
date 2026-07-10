@@ -221,6 +221,28 @@ class Presenter {
     return $count;
   }
 
+
+  public function firstImportProblem(?array $importResult): string {
+    if (!$importResult) {
+      return '';
+    }
+    if (!empty($importResult['validation']['items'])) {
+      foreach ($importResult['validation']['items'] as $item) {
+        foreach (($item['errors'] ?? []) as $error) {
+          $file = !empty($error['file']) ? ((string) $error['file'] . ': ') : '';
+          return $this->humanizeType((string) ($item['type'] ?? 'validation')) . ': ' . $file . (string) ($error['message'] ?? json_encode($error));
+        }
+      }
+    }
+    foreach (($importResult['items'] ?? []) as $item) {
+      foreach (($item['errors'] ?? []) as $error) {
+        $file = !empty($error['file']) ? ((string) $error['file'] . ': ') : '';
+        return $this->humanizeType((string) ($item['type'] ?? 'import')) . ': ' . $file . (string) ($error['message'] ?? json_encode($error));
+      }
+    }
+    return '';
+  }
+
   public function extractImportMessages(?array $importResult): array {
     $messages = [];
     if (!$importResult) {
@@ -278,7 +300,7 @@ class Presenter {
   }
 
   private function getImportableTypes(): array {
-    return ['extensions', 'option-groups', 'contact-types', 'relationship-types', 'location-types', 'financial-types', 'custom-data', 'settings', 'message-templates', 'dedupe-rules', 'scheduled-jobs', 'searchkit-saved-searches', 'searchkit-displays', 'formbuilder-afforms'];
+    return ['extensions', 'option-groups', 'contact-types', 'relationship-types', 'location-types', 'financial-types', 'custom-data', 'settings', 'site-tokens', 'message-templates', 'dedupe-rules', 'scheduled-jobs', 'searchkit-saved-searches', 'searchkit-displays', 'formbuilder-afforms', 'civirules'];
   }
 
   private function humanizeChangePath(string $path): string {

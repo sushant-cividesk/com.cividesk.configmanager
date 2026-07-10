@@ -92,3 +92,14 @@
 .crm-configmanager-block .civicfg-confirm-label {display:block; margin:.5rem 0 .25rem; font-weight:600;}
 .crm-configmanager-block #civicfg-confirm-text {width:12rem; max-width:100%; text-transform:uppercase;}
 @media (max-width: 900px) {.crm-configmanager-block .civicfg-import-diff-row {grid-template-columns:1fr;}}
+.crm-configmanager-block .civicfg-progress-overlay {position: fixed; inset: 0; z-index: 99999; background: rgba(20, 24, 30, .78); color: #fff; display: flex; align-items: center; justify-content: center; text-align: center;}
+.crm-configmanager-block .civicfg-progress-box {width: min(520px, 92vw); background: #1f252d; border-radius: 8px; padding: 2rem; box-shadow: 0 14px 48px rgba(0,0,0,.35);}
+.crm-configmanager-block .civicfg-progress-title {font-size: 1.25rem; font-weight: 700; margin-bottom: .75rem;}
+.crm-configmanager-block .civicfg-progress-text {margin-bottom: 1rem; opacity: .9;}
+.crm-configmanager-block .civicfg-progress-bar {height: 14px; background: #3d4652; border-radius: 999px; overflow: hidden;}
+.crm-configmanager-block .civicfg-progress-fill {display: block; height: 100%; width: 35%; background: #7db6ff; border-radius: 999px; animation: civicfg-progress 1.2s ease-in-out infinite;}
+@keyframes civicfg-progress {0% {transform: translateX(-120%);} 100% {transform: translateX(320%);}}
+.crm-configmanager-block.is-busy button,
+.crm-configmanager-block.is-busy input,
+.crm-configmanager-block.is-busy select,
+.crm-configmanager-block.is-busy a.button {pointer-events: none; opacity: .7;}

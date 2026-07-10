@@ -30,6 +30,35 @@
     });
 
 
+
+    function showProgress(title, text) {
+      var host = document.querySelector('.crm-configmanager-block') || document.body;
+      if (document.getElementById('civicfg-progress-overlay')) { return; }
+      host.classList.add('is-busy');
+      var overlay = document.createElement('div');
+      overlay.id = 'civicfg-progress-overlay';
+      overlay.className = 'civicfg-progress-overlay';
+      overlay.innerHTML = '' +
+        '<div class="civicfg-progress-box" role="alert" aria-live="assertive">' +
+          '<div class="civicfg-progress-title"></div>' +
+          '<div class="civicfg-progress-text"></div>' +
+          '<div class="civicfg-progress-bar"><span class="civicfg-progress-fill"></span></div>' +
+        '</div>';
+      overlay.querySelector('.civicfg-progress-title').textContent = title || 'Working...';
+      overlay.querySelector('.civicfg-progress-text').textContent = text || 'Please wait. Do not refresh or leave this page.';
+      host.appendChild(overlay);
+    }
+
+    function progressTextForForm(form) {
+      var action = form.querySelector('input[name="_action"]');
+      var value = action ? action.value : '';
+      if (value.indexOf('import') === 0) { return ['Importing configuration', 'Applying YAML to CiviCRM. This may create, update, or delete supported records.']; }
+      if (value.indexOf('export') === 0) { return ['Exporting configuration', 'Writing active CiviCRM configuration to YAML files.']; }
+      if (value === 'validate_files') { return ['Validating configuration', 'Checking YAML files and dependency metadata.']; }
+      if (value === 'save_settings') { return ['Saving settings', 'Updating Configuration Manager settings.']; }
+      return ['Working', 'Please wait. Do not refresh or leave this page.'];
+    }
+
     function ensureConfirmModal() {
       var existing = document.getElementById('civicfg-confirm-modal');
       if (existing) { return existing; }
@@ -96,6 +125,8 @@
           closeConfirmModal(modal);
           if (target) {
             target.setAttribute('data-civicfg-confirmed', '1');
+            var p = progressTextForForm(target);
+            showProgress(p[0], p[1]);
             target.submit();
           }
         };
@@ -103,6 +134,17 @@
         modal.setAttribute('aria-hidden', 'false');
         modal.classList.add('is-open');
         text.focus();
+      });
+    });
+
+    document.querySelectorAll('.crm-configmanager-block form').forEach(function(form) {
+      form.addEventListener('submit', function() {
+        if (form.hasAttribute('data-civicfg-confirm-modal') && form.getAttribute('data-civicfg-confirmed') !== '1') {
+          return;
+        }
+        var p = progressTextForForm(form);
+        showProgress(p[0], p[1]);
+        form.querySelectorAll('button[type=submit]').forEach(function(btn) { btn.disabled = true; });
       });
     });
 

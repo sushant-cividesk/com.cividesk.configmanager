@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-alpha36-core
+
+- Exported extensions as one YAML file per extension key to prepare for future extension-specific config grouping.
+- Added full-page progress overlay for import, export, validate, upload, and settings form submissions to reduce double-click/resubmission risk.
+- Preserved import result details across redirect so failure notices can name the first handler/file error and the page can list warnings/errors.
+- Added optional Site Tokens handler for sites exposing a `SiteToken` API4 entity.
+- Improved Custom Groups and Fields import with YAML-source delete support for missing fields and non-reserved missing groups, plus stronger dependency metadata.
+- Added alpha CiviRules handler for common CiviRules API4 entities when available.
+- Updated documentation and testing notes for alpha36 behavior.
+
 
 ## 0.1.0-alpha35-core
 

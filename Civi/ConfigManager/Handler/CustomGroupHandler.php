@@ -2,6 +2,19 @@
 namespace Civi\ConfigManager\Handler;
 
 class CustomGroupHandler extends AbstractHandler {
+  private bool $importWritesEnabled = TRUE;
+  private bool $deleteMissingEnabled = TRUE;
+
+  public function setImportWriteEnabled(bool $enabled): self {
+    $this->importWritesEnabled = $enabled;
+    return $this;
+  }
+
+  public function setDeleteMissingEnabled(bool $enabled): self {
+    $this->deleteMissingEnabled = $enabled;
+    return $this;
+  }
+
   public function getType(): string { return 'custom-data'; }
   public function getLabel(): string { return 'Custom Groups and Fields'; }
   public function getDirectory(): string { return 'custom-data'; }
@@ -11,7 +24,7 @@ class CustomGroupHandler extends AbstractHandler {
     $groups = $this->api4Get('CustomGroup', [], ['id', 'name', 'title', 'extends', 'extends_entity_column_id', 'extends_entity_column_value', 'style', 'collapse_display', 'help_pre', 'help_post', 'weight', 'is_active', 'is_multiple', 'min_multiple', 'max_multiple', 'collapse_adv_display', 'is_reserved', 'is_public'], ['name' => 'ASC']);
     $files = [];
     foreach ($groups as $group) {
-      $fields = $this->api4Get('CustomField', [["custom_group_id", "=", $group['id']]], ['name', 'label', 'data_type', 'html_type', 'default_value', 'is_required', 'is_searchable', 'is_search_range', 'weight', 'help_pre', 'help_post', 'attributes', 'is_active', 'is_view', 'options_per_line', 'text_length', 'start_date_years', 'end_date_years', 'date_format', 'time_format', 'note_columns', 'note_rows', 'column_name', 'option_group_id'], ['weight' => 'ASC']);
+      $fields = $this->api4Get('CustomField', [["custom_group_id", "=", $group['id']]], ['name', 'label', 'data_type', 'html_type', 'default_value', 'is_required', 'is_searchable', 'is_search_range', 'weight', 'help_pre', 'help_post', 'attributes', 'is_active', 'is_view', 'options_per_line', 'text_length', 'start_date_years', 'end_date_years', 'date_format', 'time_format', 'note_columns', 'note_rows', 'column_name', 'option_group_id'], ['weight' => 'ASC', 'name' => 'ASC']);
       unset($group['id']);
       foreach ($fields as &$field) {
         unset($field['id'], $field['custom_group_id']);
@@ -41,6 +54,7 @@ class CustomGroupHandler extends AbstractHandler {
   public function validate(array $items): array {
     $errors = [];
     $warnings = [];
+    $desiredGroupNames = [];
     foreach ($items as $filename => $file) {
       if (($file['type'] ?? '') !== 'custom_group') {
         $errors[] = ['file' => $filename, 'message' => 'Invalid type. Expected custom_group.'];
@@ -75,11 +89,15 @@ class CustomGroupHandler extends AbstractHandler {
         $summary['errors'][] = ['file' => $filename, 'message' => 'Custom group is missing group.name.'];
         continue;
       }
+      $desiredGroupNames[(string) $group['name']] = TRUE;
 
       try {
         $existingGroup = $this->api4GetFirst('CustomGroup', [['name', '=', (string) $group['name']]], ['*']);
         $groupId = $existingGroup['id'] ?? NULL;
-        if ($existingGroup) {
+        if (!$this->importWritesEnabled) {
+          // Delete phase only. We still collect desired group names above.
+        }
+        elseif ($existingGroup) {
           if ($this->desiredDiffers($existingGroup, $group)) {
             $summary['update']++;
             if (!$dryRun) {
@@ -103,6 +121,7 @@ class CustomGroupHandler extends AbstractHandler {
           $groupId = $existingGroup['id'] ?? NULL;
         }
 
+        $desiredFieldNames = [];
         foreach (($file['fields'] ?? []) as $field) {
           $field = $this->cleanValues((array) $field);
           $this->resolveFieldOptionGroup($field, $filename, $summary);
@@ -110,7 +129,11 @@ class CustomGroupHandler extends AbstractHandler {
             $summary['errors'][] = ['file' => $filename, 'message' => 'Custom field is missing name.'];
             continue;
           }
+          $desiredFieldNames[(string) $field['name']] = TRUE;
           $existingField = $groupId ? $this->api4GetFirst('CustomField', [['custom_group_id', '=', $groupId], ['name', '=', (string) $field['name']]], ['*']) : NULL;
+          if (!$this->importWritesEnabled) {
+            continue;
+          }
           if (!$dryRun && $groupId) {
             $field['custom_group_id'] = $groupId;
           }
@@ -135,18 +158,75 @@ class CustomGroupHandler extends AbstractHandler {
             }
           }
         }
+
+        if ($this->deleteMissingEnabled && $groupId) {
+          $this->deleteFieldsMissingFromYaml((int) $groupId, (string) $group['name'], $desiredFieldNames, $dryRun, $summary);
+        }
       }
       catch (\Throwable $e) {
         $summary['errors'][] = ['file' => $filename, 'message' => $e->getMessage()];
       }
     }
+    if ($this->deleteMissingEnabled) {
+      $this->deleteGroupsMissingFromYaml($desiredGroupNames, $dryRun, $summary);
+    }
     $summary['ok'] = empty($summary['errors']);
     return $summary;
+  }
+
+  private function deleteFieldsMissingFromYaml(int $groupId, string $groupName, array $desiredFieldNames, bool $dryRun, array &$summary): void {
+    $existingFields = $this->api4Get('CustomField', [['custom_group_id', '=', $groupId]], ['id', 'name', 'label'], ['name' => 'ASC']);
+    foreach ($existingFields as $field) {
+      $name = (string) ($field['name'] ?? '');
+      if ($name === '' || isset($desiredFieldNames[$name])) {
+        continue;
+      }
+      $summary['delete']++;
+      $summary['warnings'][] = [
+        'name' => $groupName . '.' . $name,
+        'message' => 'Custom field exists in CiviCRM but not YAML and will be deleted: ' . $groupName . '.' . $name,
+      ];
+      if (!$dryRun) {
+        $this->api4Delete('CustomField', [['id', '=', (int) $field['id']]]);
+      }
+    }
+  }
+
+  private function deleteGroupsMissingFromYaml(array $desiredGroupNames, bool $dryRun, array &$summary): void {
+    $existingGroups = $this->api4Get('CustomGroup', [], ['id', 'name', 'title', 'is_reserved'], ['name' => 'ASC']);
+    foreach ($existingGroups as $group) {
+      $name = (string) ($group['name'] ?? '');
+      if ($name === '' || isset($desiredGroupNames[$name])) {
+        continue;
+      }
+      if (!empty($group['is_reserved'])) {
+        $summary['skip']++;
+        continue;
+      }
+      $summary['delete']++;
+      $summary['warnings'][] = [
+        'name' => $name,
+        'message' => 'Custom group exists in CiviCRM but not YAML and will be deleted: ' . $name,
+      ];
+      if (!$dryRun) {
+        $this->api4Delete('CustomGroup', [['id', '=', (int) $group['id']]]);
+      }
+    }
   }
 
   private function dependenciesForGroup(array $group, array $fields): array {
     $dependencies = [];
     $seen = [];
+    foreach ((array) ($group['extends_entity_column_value'] ?? []) as $extendsValue) {
+      if (is_string($extendsValue) && $extendsValue !== '') {
+        $dependencies[] = [
+          'type' => 'contact-types',
+          'entity' => 'ContactType',
+          'name' => $extendsValue,
+          'reason' => 'Custom group is scoped to this contact/sub-contact type.',
+        ];
+      }
+    }
     foreach ($fields as $field) {
       $field = (array) $field;
       $optionGroupName = (string) ($field['option_group_name'] ?? '');

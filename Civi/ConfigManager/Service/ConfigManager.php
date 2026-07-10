@@ -233,10 +233,12 @@ class ConfigManager {
       'formbuilder-afforms' => ['searchkit-displays', 'searchkit-saved-searches'],
 
       // Custom fields can depend on option groups and the contact type scope.
-      'custom-data' => ['option-groups', 'contact-types'],
+      'custom-data' => ['option-groups', 'contact-types', 'site-tokens'],
 
       // Relationship types can depend on contact/sub-contact types.
       'relationship-types' => ['contact-types'],
+      'civirules' => ['extensions'],
+      'site-tokens' => ['extensions'],
     ];
   }
 
@@ -496,6 +498,7 @@ class ConfigManager {
         }
         $this->setHandlerImportPhase($handler, TRUE, TRUE);
       }
+      $result['summary_message'] = $this->buildImportSummaryMessage($result);
       return $result;
     }
 
@@ -508,7 +511,21 @@ class ConfigManager {
         $result['ok'] = FALSE;
       }
     }
+    $result['summary_message'] = $this->buildImportSummaryMessage($result);
     return $result;
+  }
+
+  private function buildImportSummaryMessage(array $result): string {
+    $create = $update = $delete = $skip = $errors = $warnings = 0;
+    foreach (($result['items'] ?? []) as $item) {
+      $create += (int) ($item['create'] ?? 0);
+      $update += (int) ($item['update'] ?? 0);
+      $delete += (int) ($item['delete'] ?? 0);
+      $skip += (int) ($item['skip'] ?? 0);
+      $errors += !empty($item['errors']) ? count($item['errors']) : 0;
+      $warnings += !empty($item['warnings']) ? count($item['warnings']) : 0;
+    }
+    return sprintf('Import result: %d created, %d updated, %d deleted, %d skipped, %d warning(s), %d error(s).', $create, $update, $delete, $skip, $warnings, $errors);
   }
 
   private function setHandlerImportPhase($handler, bool $writeEnabled, bool $deleteEnabled): void {
