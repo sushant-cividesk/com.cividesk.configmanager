@@ -327,7 +327,10 @@ class ConfigManager {
       }
       try {
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
-        $result['items'][] = $this->filterIgnoredDiffItem($handler->diff($files));
+        $item = $this->filterIgnoredDiffItem($handler->diff($files), $handler->getDirectory());
+        if (($item['status'] ?? '') !== 'in_sync' || !empty($item['files'])) {
+          $result['items'][] = $item;
+        }
       }
       catch (\Throwable $e) {
         $result['errors'][] = ['type' => $handler->getType(), 'message' => $e->getMessage()];
@@ -596,7 +599,7 @@ class ConfigManager {
     return $filtered;
   }
 
-  private function filterIgnoredDiffItem(array $item): array {
+  private function filterIgnoredDiffItem(array $item, string $directory = ''): array {
     $ignoredFiles = [];
     $files = [];
     foreach (($item['files'] ?? []) as $file) {
@@ -612,7 +615,9 @@ class ConfigManager {
     foreach (['changed', 'new_in_db', 'missing_in_db'] as $bucket) {
       $values = [];
       foreach (($item[$bucket] ?? []) as $filename) {
-        if (!isset($ignoredFiles[(string) $filename])) {
+        $filename = (string) $filename;
+        $relative = trim($directory, '/') !== '' ? trim($directory, '/') . '/' . ltrim($filename, '/') : $filename;
+        if (!isset($ignoredFiles[$filename]) && !$this->isIgnoredPath($relative)) {
           $values[] = $filename;
         }
       }
@@ -645,6 +650,36 @@ class ConfigManager {
       }
     }
     return FALSE;
+  }
+
+
+  public function getIgnoredDependencyWarnings(): array {
+    $storage = new YamlFileStorage($this->getSyncDir());
+    $warnings = [];
+    $yamlByType = [];
+    foreach ($this->getHandlers() as $handler) {
+      $yamlByType[$handler->getType()] = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+    }
+    $available = $this->collectManagedYamlNames($yamlByType);
+    foreach ($yamlByType as $type => $files) {
+      foreach ($files as $filename => $file) {
+        foreach ($this->extractDependenciesFromYamlFile((array) $file) as $dependency) {
+          $dependencyType = (string) ($dependency['type'] ?? '');
+          $dependencyName = (string) ($dependency['name'] ?? '');
+          if ($dependencyType === '' || $dependencyName === '') {
+            continue;
+          }
+          if (!empty($available[$dependencyType][$dependencyName])) {
+            continue;
+          }
+          $ignoredHint = $this->ignoredDependencyHint($dependencyType, $dependencyName);
+          if ($ignoredHint !== '') {
+            $warnings[] = sprintf('%s depends on ignored YAML %s. Remove or narrow the ignore rule before importing related configuration.', $filename, $ignoredHint);
+          }
+        }
+      }
+    }
+    return array_values(array_unique($warnings));
   }
 
 

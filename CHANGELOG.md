@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha39-core
+
+- Hardened Config Ignore so ignored DB-only records are hidden from Synchronize/import previews when their generated YAML path matches an ignore rule.
+- Added dependency-risk warnings after saving Config Ignore when non-ignored YAML depends on ignored YAML.
+- Added requested CLI aliases `cdf`, `cval`, and `cvcfg`; kept `ce`, `ci`, and main command wrappers.
+- Updated CLI help to document `-y`, `-h`, and `--help`.
+- Added cross-theme UI compatibility styles for CiviCRM core themes.
+
 ## 0.1.0-alpha38-core
 
 - Added dedicated CLI wrapper scripts under `bin/`:

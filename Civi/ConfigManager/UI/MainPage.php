@@ -68,6 +68,14 @@ class MainPage {
         $ignoreRaw = trim((string) ($_POST['ignore_paths'] ?? ''));
         if ($ignoreRaw !== '') {
           \CRM_Core_Session::setStatus(ts('Config Ignore is active. Ignored YAML files are skipped during diff, validate, export, import, single-file preview, and ZIP download. Make sure ignored files are not required dependencies for non-ignored configuration.'), ts('Configuration Manager'), 'warning');
+          try {
+            foreach ($this->manager->getIgnoredDependencyWarnings() as $warning) {
+              \CRM_Core_Session::setStatus($warning, ts('Configuration Manager'), 'warning');
+            }
+          }
+          catch (Exception $e) {
+            \CRM_Core_Session::setStatus(ts('Config Ignore was saved, but dependency warnings could not be checked: %1', [1 => $e->getMessage()]), ts('Configuration Manager'), 'warning');
+          }
         }
         \CRM_Utils_System::redirect(\CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=settings'));
       }

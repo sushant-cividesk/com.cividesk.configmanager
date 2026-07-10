@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha37-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha39-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -294,3 +294,11 @@ Config Ignore accepts one relative YAML path or wildcard per line. Ignored files
 ### Environment workflow
 
 The safest target workflow is one site codebase moving configuration between its own environments: dev, stage, and production. Cross-site imports are possible but require extra review because extensions, sample data, IDs, and contributed-extension defaults can differ between sites.
+
+
+## Alpha 39 Notes
+
+- Config Ignore is applied consistently to diff, validate, import, export, single-file preview, and ZIP download. Ignored DB-only records are hidden from Synchronize when their generated YAML path matches an ignore rule.
+- Saving Config Ignore now checks for detectable non-ignored YAML files that depend on ignored YAML files and warns the administrator.
+- CLI aliases are available as `config-export`/`ce`, `config-import`/`ci`, `config-diff`/`cdf`, `config-validate`/`cval`, and `civicfg`/`cvcfg`. Use `-h` or `--help` for usage, and `-y`/`--yes` for import apply.
+- UI compatibility styles were adjusted so buttons and panels render more consistently across CiviCRM core themes.

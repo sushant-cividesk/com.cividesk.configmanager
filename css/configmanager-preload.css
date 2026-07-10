@@ -24,3 +24,6 @@
 .crm-configmanager-block .civicfg-settings-form {width: 100%; max-width: none;}
 .crm-configmanager-block .civicfg-settings-form table.form-layout-compressed {width: 100%; max-width: none;}
 .crm-configmanager-block .civicfg-settings-form table.form-layout-compressed td.label {width: 180px; min-width: 180px;}
+
+/* civicfg-preload-button-compat */
+.crm-configmanager-block .button{width:auto;max-width:100%;box-sizing:border-box;}

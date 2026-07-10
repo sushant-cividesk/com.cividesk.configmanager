@@ -8,15 +8,15 @@ Configuration Manager CLI
 Usage:
   civicfg config-export|ce [options]
   civicfg config-import|ci [options]
-  civicfg config-diff|cd [options]
-  civicfg config-validate|cv [options]
+  civicfg config-diff|cdf [options]
+  civicfg config-validate|cval [options]
   civicfg status
 
 Options:
   --type TYPE       Limit to a config type. Repeat for multiple types.
   --dry-run         Preview only. Default for import; optional for export.
   --write           Write YAML files for export.
-  --yes             Apply import. Required to change CiviCRM.
+  --yes, -y         Apply import or answer yes where supported.
   --json            Ask cv for JSON output when supported.
   -h, --help        Show this help.
 
@@ -30,8 +30,9 @@ Examples:
 Short aliases:
   ce = config-export
   ci = config-import
-  cd = config-diff
-  cv = config-validate
+  cdf = config-diff
+  cval = config-validate
+  cvcfg = civicfg
 HELP
 }
 
@@ -42,6 +43,11 @@ json_array() {
 if [[ $# -eq 0 ]]; then
   show_help
   exit 2
+fi
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  show_help
+  exit 0
 fi
 
 command="$1"
@@ -106,10 +112,10 @@ case "$command" in
     [[ -n "$dry_run" ]] || dry_run="1"
     exec cv "${cv_args[@]}" api4 ConfigManager.import dryRun="$dry_run" yes="$yes" type="$type_json"
     ;;
-  config-diff|cd)
+  config-diff|cdf|cd)
     exec cv "${cv_args[@]}" api4 ConfigManager.diff type="$type_json"
     ;;
-  config-validate|cv)
+  config-validate|cval|cv)
     exec cv "${cv_args[@]}" api4 ConfigManager.validate type="$type_json"
     ;;
   status)

@@ -103,3 +103,23 @@
 .crm-configmanager-block.is-busy input,
 .crm-configmanager-block.is-busy select,
 .crm-configmanager-block.is-busy a.button {pointer-events: none; opacity: .7;}
+
+/* Keep the UI usable across CiviCRM core themes. Do not rely on a theme-specific button size. */
+.crm-configmanager-block .button,
+.crm-configmanager-block button.button,
+.crm-configmanager-block a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.1rem;
+  padding: .35rem .7rem;
+  line-height: 1.25;
+  width: auto;
+  max-width: 100%;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.crm-configmanager-block .button span {line-height: 1.25;}
+.crm-configmanager-block table.form-layout-compressed {table-layout: auto;}
+.crm-configmanager-block details > summary {list-style-position: inside;}
+.crm-configmanager-block .messages.no-popup {box-sizing: border-box;}
