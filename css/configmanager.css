@@ -9,7 +9,7 @@
 .crm-configmanager-block .civicfg-card-value {font-size: 1.15rem; font-weight: 600;}
 .crm-configmanager-block .civicfg-path {font-family: Menlo, Consolas, monospace; word-break: break-all; font-size: .9em;}
 .crm-configmanager-block .civicfg-actions {display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0; align-items: center;}
-.crm-configmanager-block .civicfg-actions .button {margin: 0; display: flex;}
+.crm-configmanager-block .civicfg-actions .button {margin: 0; display: flex !important;}
 .crm-configmanager-block .civicfg-badge {display: inline-block; padding: .15rem .45rem; border-radius: 3px; background: #e8edf3;}
 .crm-configmanager-block .civicfg-badge.good {background: #dff0d8; color: #245724;}
 .crm-configmanager-block .civicfg-badge.bad {background: #f2dede; color: #842029;}
