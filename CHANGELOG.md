@@ -9,6 +9,7 @@
 - Added lifecycle/upgrade handling for the generated site identifier and CLI wrappers so future releases can upgrade deployed installations cleanly.
 - Tightened scoped button styling so action buttons render consistently across CiviCRM core and custom themes.
 - Hotfix: export now removes stale managed YAML files when the matching active CiviCRM record no longer exists, instead of reporting nothing to export.
+- Hotfix: stale YAML cleanup now uses the same missing-in-CiviCRM diff detection as the Synchronize screen and shows an EXPORT confirmation modal before deleting stale YAML files.
 - Hotfixed Custom Groups import to initialize the desired-group tracking list and skip delete-missing checks when earlier custom-data import errors exist, preventing a PHP TypeError and unsafe follow-up cleanup.
 
 ## 0.1.0-alpha42-core

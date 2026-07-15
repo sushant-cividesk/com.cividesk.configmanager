@@ -334,12 +334,8 @@ class ConfigManager {
     }
 
     $queue = $this->addReverseDependencyMetadataToExportQueue($queue);
-    $exportedRelative = [];
-    foreach ($queue as $file) {
-      $exportedRelative[(string) ($file['relative'] ?? '')] = TRUE;
-    }
 
-    foreach ($this->findStaleYamlFilesForExport($storage, $successfulHandlers, $exportedRelative) as $staleFile) {
+    foreach ($this->findStaleYamlFilesForExport($storage, $successfulHandlers, $queue) as $staleFile) {
       if ($dryRun) {
         $summary['delete_planned'][] = (string) $staleFile['relative'];
         $summary['planned'][] = (string) $staleFile['relative'] . ' (delete stale YAML)';
@@ -380,18 +376,39 @@ class ConfigManager {
     return $summary;
   }
 
-  private function findStaleYamlFilesForExport(YamlFileStorage $storage, array $handlers, array $exportedRelative): array {
+  private function findStaleYamlFilesForExport(YamlFileStorage $storage, array $handlers, array $queue): array {
     $stale = [];
+    $exportedByType = [];
+    foreach ($queue as $file) {
+      $type = (string) ($file['type'] ?? '');
+      $filename = (string) ($file['filename'] ?? '');
+      if ($type === '' || $filename === '') {
+        continue;
+      }
+      $exportedByType[$type][] = [
+        'filename' => $filename,
+        'data' => (array) ($file['data'] ?? []),
+      ];
+    }
+
     foreach ($handlers as $handler) {
       $directory = trim((string) $handler->getDirectory(), '/');
-      foreach ($storage->readDirectory($handler->getDirectory()) as $filename => $data) {
-        $relative = $directory === '' ? (string) $filename : $directory . '/' . (string) $filename;
-        if (isset($exportedRelative[$relative]) || $this->isIgnoredPath($relative)) {
+      $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+      $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
+      $exported = $exportedByType[$handler->getType()] ?? [];
+      $diff = $handler->diffFromExports($exported, $files);
+      foreach ((array) ($diff['missing_in_db'] ?? []) as $filename) {
+        $filename = (string) $filename;
+        if ($filename === '') {
+          continue;
+        }
+        $relative = $directory === '' ? $filename : $directory . '/' . $filename;
+        if ($this->isIgnoredPath($relative)) {
           continue;
         }
         $stale[$relative] = [
           'directory' => $handler->getDirectory(),
-          'filename' => (string) $filename,
+          'filename' => $filename,
           'relative' => $relative,
         ];
       }

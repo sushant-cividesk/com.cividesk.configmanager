@@ -6,8 +6,14 @@
         {if $result.dependency_types|@count gt 0}
           <div class="messages status no-popup">{ts}Related dependency types are included automatically in this export preview:{/ts} {foreach from=$result.dependency_types item=type}<code>{$type|escape}</code> {/foreach}</div>
         {/if}
+        {if $result.delete_planned|@count gt 0}
+          <div class="messages warning no-popup">
+            <strong>{ts}Stale YAML files will be deleted on export because the matching CiviCRM records no longer exist:{/ts}</strong>
+            <ul>{foreach from=$result.delete_planned item=file}<li><code>{$file|escape}</code></li>{/foreach}</ul>
+          </div>
+        {/if}
         <div class="civicfg-actions">
-          <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" {if $exportDependencyTypes|@count gt 0}data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Export with Dependencies" data-civicfg-confirm-word="EXPORT" data-civicfg-confirm-button="Export" data-civicfg-confirm-message="The selected filter has related dependency types. Export will include those related YAML files too so the configuration can deploy safely." data-civicfg-confirm-warning="Export writes active CiviCRM configuration to YAML. Related dependency files will also be exported so the exported set stays deployable."{/if}>
+          <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" {if $exportNeedsConfirmation}data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Export YAML Changes" data-civicfg-confirm-word="EXPORT" data-civicfg-confirm-button="Export" data-civicfg-confirm-message="{$exportConfirmMessage|escape}" data-civicfg-confirm-warning="{$exportConfirmWarning|escape}"{/if}>
             <input type="hidden" name="_action" value="export_write" />
             {foreach from=$selectedTypes item=type}<input type="hidden" name="type[]" value="{$type|escape}" />{/foreach}
             <button type="submit" class="button"><span>{ts}Export{/ts}</span></button>

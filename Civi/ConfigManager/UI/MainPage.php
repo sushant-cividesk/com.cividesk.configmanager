@@ -342,6 +342,21 @@ class MainPage {
 
     $effectiveExportTypes = $this->manager->getEffectiveExportTypeFilter($types);
     $exportDependencyTypes = $types ? array_values(array_diff($effectiveExportTypes, $types)) : [];
+    $exportDeletePlanned = [];
+    try {
+      $exportPreview = $this->manager->export(TRUE, $types);
+      $exportDeletePlanned = array_values(array_map('strval', (array) ($exportPreview['delete_planned'] ?? [])));
+    }
+    catch (Exception $e) {
+      $exportDeletePlanned = [];
+    }
+    $exportNeedsConfirmation = !empty($exportDependencyTypes) || !empty($exportDeletePlanned);
+    $exportConfirmMessage = !empty($exportDeletePlanned)
+      ? ts('Export will update YAML from active CiviCRM and delete stale managed YAML file(s) that no longer exist in CiviCRM. Review the changed files before continuing.')
+      : ts('The selected filter has related dependency types. Export will include those related YAML files too so the configuration can deploy safely.');
+    $exportConfirmWarning = !empty($exportDeletePlanned)
+      ? ts('Stale YAML files to delete: %1', [1 => implode(', ', array_slice($exportDeletePlanned, 0, 10)) . (count($exportDeletePlanned) > 10 ? ' ...' : '')])
+      : ts('Export writes active CiviCRM configuration to YAML. Related dependency files will also be exported so the exported set stays deployable.');
     $exportItems = $this->files->buildExportItems($this->manager, $types);
     $selectedExportItem = $this->request->getSingleExportKey();
     $singleExport = NULL;
@@ -373,7 +388,9 @@ class MainPage {
       'errors' => [],
       'items' => [],
       'planned' => [],
+      'delete_planned' => [],
       'written' => [],
+      'deleted' => [],
       'skipped' => [],
       'requested_types' => [],
       'effective_types' => [],
@@ -433,6 +450,10 @@ class MainPage {
     $this->page->assign('effectiveExportTypes', $effectiveExportTypes);
     $this->page->assign('exportDependencyTypes', $exportDependencyTypes);
     $this->page->assign('exportDependencyTypeLabels', $this->presenter->labelsForTypes($this->manager, $exportDependencyTypes));
+    $this->page->assign('exportDeletePlanned', $exportDeletePlanned);
+    $this->page->assign('exportNeedsConfirmation', $exportNeedsConfirmation);
+    $this->page->assign('exportConfirmMessage', $exportConfirmMessage);
+    $this->page->assign('exportConfirmWarning', $exportConfirmWarning);
     $this->page->assign('exportItems', $exportItems);
     $this->page->assign('selectedExportItem', $selectedExportItem);
     $this->page->assign('singleExport', $singleExport);
