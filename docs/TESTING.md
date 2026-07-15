@@ -87,3 +87,12 @@ Option group value validation allows CiviCRM core data where option value names 
 - Export a SearchKit display named `Table` under a saved search, reinstall the site, then import. Confirm it matches by saved search name plus display name and does not fail with an already-exists error.
 - Confirm `extensions/com.cividesk.configmanager.yml` is ignored by default in Synchronize, Validate, Export, and Import.
 - Add a path to Config Ignore and confirm it is excluded from changed-file and import previews.
+
+## Alpha40 generic extension-config tests
+
+Run these tests on sites where contributed/custom extensions are installed and enabled:
+
+- Generic extension entities: create or edit a non-critical extension-provided API4/APIv3 config record, export, diff, import dry-run, import apply, and confirm it is restored without relying on local numeric IDs. Exported files should appear under `extension-config/<extension>/<api>/<entity>/`.
+- Extension settings: confirm non-secret settings that can be attributed to an installed extension export to `extension-settings/<extension-key>.yml`; confirm sensitive names such as passwords, secrets, tokens, and API keys are blocked.
+- Dependency clarity: remove a required YAML dependency and run Validate/Import. The message should identify the owning file, missing dependency type/name, and whether Config Ignore or an older numeric-ID export is likely involved.
+- Missing provider: disable/remove the provider extension on a disposable test build and confirm validation/import reports a clear missing-provider error instead of fataling.

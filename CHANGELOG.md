@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha40-core
+
+- Reworked contributed/custom extension support to use generic discovery instead of extension-specific handlers.
+- Added generic Extension Entity Config handler, which discovers configuration-like API4/APIv3 entities exposed by installed extensions and exports them under `extension-config/<extension>/<api>/<entity>/<item>.yml` when stable identities are available.
+- Reworked Extension-specific Settings handler to discover non-secret extension settings from metadata and installed-extension namespaces instead of hard-coded extension keys.
+- Improved dependency validation wording for missing dependencies, especially older YAML that still contains local numeric IDs.
+- Fixed Custom Groups/Fields export dependencies so contact-type scope dependencies use Contact Type machine names when possible instead of local numeric IDs.
+- Updated README/testing notes for alpha40 generic extension-config behavior and CLI command/alias structure.
+
 ## 0.1.0-alpha39-core
 
 - Hardened Config Ignore so ignored DB-only records are hidden from Synchronize/import previews when their generated YAML path matches an ignore rule.

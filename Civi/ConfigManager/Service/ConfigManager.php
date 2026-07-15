@@ -235,9 +235,13 @@ class ConfigManager {
       // Custom fields can depend on option groups and the contact type scope.
       'custom-data' => ['option-groups', 'contact-types', 'site-tokens'],
 
+      // Generic extension config should move with the provider extension and any detectable related settings/config.
+      'extension-config' => ['extensions', 'extension-settings', 'message-templates', 'contact-types', 'custom-data', 'option-groups'],
+      'extension-settings' => ['extensions'],
+
       // Relationship types can depend on contact/sub-contact types.
       'relationship-types' => ['contact-types'],
-      'civirules' => ['extensions'],
+      'civirules' => ['extensions', 'extension-settings'],
       'site-tokens' => ['extensions'],
     ];
   }
@@ -398,10 +402,7 @@ class ConfigManager {
             $result['ok'] = FALSE;
             $reason = (string) ($dependency['reason'] ?? 'This YAML item references another managed config item.');
             $ignoredHint = $this->ignoredDependencyHint($dependencyType, $dependencyName);
-            $message = sprintf('Cannot import %s because required dependency %s "%s" is missing from YAML. %s Re-export the related items together, or restore the missing YAML file before importing.', $filename, $dependencyType, $dependencyName, $reason);
-            if ($ignoredHint !== '') {
-              $message .= ' The dependency appears to be hidden by Config Ignore: ' . $ignoredHint . '. Remove or narrow that ignore rule before importing this item.';
-            }
+            $message = $this->formatMissingDependencyMessage($filename, $type, $dependencyType, $dependencyName, $reason, $ignoredHint);
             $result['items'][$itemIndex[$type]]['errors'][] = [
               'file' => $filename,
               'message' => $message,
@@ -410,6 +411,22 @@ class ConfigManager {
         }
       }
     }
+  }
+
+
+  private function formatMissingDependencyMessage(string $filename, string $ownerType, string $dependencyType, string $dependencyName, string $reason, string $ignoredHint = ''): string {
+    $prefix = sprintf('Cannot import %s/%s: missing dependency %s "%s".', $ownerType, $filename, $dependencyType, $dependencyName);
+    if ($dependencyType === 'contact-types' && preg_match('/^[0-9]+$/', $dependencyName)) {
+      $prefix .= ' The dependency name is numeric, which usually means this YAML was exported by an older alpha using a local database ID instead of the Contact Type machine name.';
+      $prefix .= ' Re-export Custom Groups and Fields together with Contact Types using the current build, or update the YAML dependency to the stable contact type name before importing.';
+    }
+    else {
+      $prefix .= ' ' . $reason . ' Re-export the related items together, or restore the missing YAML file before importing.';
+    }
+    if ($ignoredHint !== '') {
+      $prefix .= ' The dependency appears to be hidden by Config Ignore: ' . $ignoredHint . '. Remove or narrow that ignore rule before importing this item.';
+    }
+    return $prefix;
   }
 
   private function ignoredDependencyHint(string $type, string $name): string {
@@ -431,6 +448,8 @@ class ConfigManager {
       'formbuilder-afforms' => ['formbuilder/afforms/' . $safe . '.yml'],
       'scheduled-jobs' => ['scheduled-jobs/' . $safe . '.yml'],
       'site-tokens' => ['site-tokens/' . $safe . '.yml'],
+      'extension-config' => ['extension-config/*/*/*/' . $safe . '.yml', 'extension-config/*/*/' . $safe . '.yml'],
+      'extension-settings' => ['extension-settings/' . $safe . '.yml'],
       'civirules' => ['civirules/' . $safe . '.yml', 'civirules/*/' . $safe . '.yml'],
     ];
     return $map[$type] ?? [$type . '/' . $safe . '.yml'];
@@ -454,8 +473,17 @@ class ConfigManager {
     if (!empty($file['name'])) {
       $names[] = (string) $file['name'];
     }
+    if (!empty($file['key'])) {
+      $names[] = (string) $file['key'];
+    }
+    if (!empty($file['extension']) && is_string($file['extension'])) {
+      $names[] = (string) $file['extension'];
+    }
+    if (!empty($file['extension']) && is_array($file['extension']) && !empty($file['extension']['key'])) {
+      $names[] = (string) $file['extension']['key'];
+    }
     if (!empty($file['item']) && is_array($file['item'])) {
-      foreach (['name', 'title', 'name_a_b'] as $key) {
+      foreach (['name', 'title', 'label', 'name_a_b'] as $key) {
         if (!empty($file['item'][$key])) {
           $names[] = (string) $file['item'][$key];
         }
@@ -463,7 +491,7 @@ class ConfigManager {
     }
     foreach (($file['items'] ?? []) as $row) {
       if (is_array($row)) {
-        foreach (['name', 'title', 'name_a_b'] as $key) {
+        foreach (['name', 'title', 'label', 'name_a_b'] as $key) {
           if (!empty($row[$key])) {
             $names[] = (string) $row[$key];
           }

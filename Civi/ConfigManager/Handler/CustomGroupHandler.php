@@ -218,11 +218,12 @@ class CustomGroupHandler extends AbstractHandler {
     $dependencies = [];
     $seen = [];
     foreach ((array) ($group['extends_entity_column_value'] ?? []) as $extendsValue) {
-      if (is_string($extendsValue) && $extendsValue !== '') {
+      $contactTypeName = $this->resolveContactTypeDependencyName($extendsValue);
+      if ($contactTypeName !== '') {
         $dependencies[] = [
           'type' => 'contact-types',
           'entity' => 'ContactType',
-          'name' => $extendsValue,
+          'name' => $contactTypeName,
           'reason' => 'Custom group is scoped to this contact/sub-contact type.',
         ];
       }
@@ -245,6 +246,25 @@ class CustomGroupHandler extends AbstractHandler {
       }
     }
     return $dependencies;
+  }
+
+
+  private function resolveContactTypeDependencyName($value): string {
+    if ($value === NULL || $value === '') {
+      return '';
+    }
+    if (is_numeric($value)) {
+      try {
+        $contactType = $this->api4GetFirst('ContactType', [['id', '=', (int) $value]], ['name']);
+        if (!empty($contactType['name'])) {
+          return (string) $contactType['name'];
+        }
+      }
+      catch (\Throwable $e) {
+        // Fall through to the raw value so validation can explain the issue.
+      }
+    }
+    return is_scalar($value) ? (string) $value : '';
   }
 
   private function resolveFieldOptionGroup(array &$field, string $filename, array &$summary): void {

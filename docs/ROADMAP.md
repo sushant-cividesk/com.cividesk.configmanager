@@ -9,7 +9,7 @@ The current alpha focuses on a safe, reviewable configuration workflow:
 - API4 automation surface.
 - YAML export, diff, and validation.
 - UI synchronize/import/export/settings tabs.
-- Non-destructive import for supported handlers.
+- Create/update/delete import for supported handlers, with destructive changes shown in preview.
 - Single YAML and ZIP staging.
 - Single-file export preview and download.
 - Granular permissions.
@@ -36,20 +36,23 @@ Before treating phase 1 as complete, finish:
 
 ## Phase 2 candidates
 
-- CiviRules.
-- Mosaico templates.
 - SQL query definitions.
-- Contact summary layouts.
-- Extension-specific configuration handlers.
+- Mosaico/contact-layout/base-template asset deployment review through the generic extension-config handler.
+- More complete CiviRules rule-component dependency ordering.
+- Safer generic extension-config classification for extension APIs that expose operational data instead of deployable config.
 - Environment override support.
 - Further harden destructive import dependency checks and per-record dependency ordering.
-- Optional CLI aliases after API4 stabilizes.
+- Global CLI installer/launcher after extension install.
 
-## Deferred CLI wrapper
+## CLI roadmap
 
-The custom `cv civicfg:*` wrapper is paused. API4 remains the supported command surface for now.
+CLI wrapper scripts are available under `bin/` and call the existing API4 actions instead of duplicating business logic.
 
-A future wrapper should be thin and should call the existing API4 actions instead of duplicating business logic.
+Next CLI work:
+
+- Add detailed CLI documentation and examples.
+- Make `civicfg` globally accessible after extension install.
+- Keep `ce`, `ci`, `cdf`, and `cval` as documented aliases.
 
 ## Asset tooling
 

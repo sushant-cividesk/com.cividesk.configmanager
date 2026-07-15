@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha39-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha40-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -114,9 +114,9 @@ $civicrm_setting['domain']['civicfg_sync_dir'] = '/var/www/html/civicrm-buildkit
 
 When this setting is present, the UI shows the Sync Directory as locked and does not allow UI edits to override the code-defined value.
 
-## API4 and automation
+## API4 and CLI automation
 
-The supported command/automation surface is API4 through `cv`.
+The UI and CLI wrappers use the same API4 backend.
 
 ```bash
 cv api4 ConfigManager.status
@@ -129,7 +129,30 @@ cv api4 ConfigManager.import dryRun=1 type=option-groups
 cv api4 ConfigManager.import dryRun=0 yes=1 type=option-groups
 ```
 
-The custom `cv civicfg:*` CLI wrapper is paused for the current alpha series. Keep operational workflows on `cv api4 ConfigManager.*` until the API4 engine and UI behavior are stable enough for a thin CLI alias.
+Preferred CLI commands are available under the extension `bin/` directory:
+
+| Main command | Alias | Purpose |
+|---|---|---|
+| `bin/config-export` | `bin/ce` | Export active CiviCRM configuration to YAML. |
+| `bin/config-import` | `bin/ci` | Preview or apply YAML configuration import. |
+| `bin/config-diff` | `bin/cdf` | Show YAML vs active CiviCRM differences. |
+| `bin/config-validate` | `bin/cval` | Validate YAML and dependency safety. |
+| `bin/civicfg` | `bin/cvcfg` | General wrapper for all operations. |
+
+Examples:
+
+```bash
+ext/com.cividesk.configmanager/bin/ce --write
+ext/com.cividesk.configmanager/bin/ce --type searchkit-saved-searches --write
+ext/com.cividesk.configmanager/bin/ci --dry-run
+ext/com.cividesk.configmanager/bin/ci --yes
+ext/com.cividesk.configmanager/bin/cdf
+ext/com.cividesk.configmanager/bin/cval
+ext/com.cividesk.configmanager/bin/civicfg ce --write
+ext/com.cividesk.configmanager/bin/civicfg ci --yes
+```
+
+Future work: make `civicfg` globally available immediately after extension install.
 
 ## Managed configuration types
 
@@ -151,6 +174,8 @@ Current export/diff/validate support includes:
 - SearchKit Displays
 - FormBuilder Afforms
 - Site Tokens, when `SiteToken` API4 exists
+- Generic Extension Entity Config, for extension-provided API4/APIv3 entities with stable identities
+- Extension-specific Settings, discovered generically from non-secret setting metadata/namespaces
 - CiviRules, alpha support when CiviRules API4 entities exist
 
 Current create/update import support includes:
@@ -170,6 +195,8 @@ Current create/update import support includes:
 - SearchKit Displays
 - FormBuilder Afforms
 - Site Tokens, when `SiteToken` API4 exists
+- Generic Extension Entity Config, for extension-provided API4/APIv3 entities with stable identities
+- Extension-specific Settings, discovered generically from non-secret setting metadata/namespaces
 - CiviRules, alpha support when CiviRules API4 entities exist
 
 Payment Processors remain export/diff only because exported data is sanitized and may omit environment-specific or secret values.
@@ -186,6 +213,8 @@ Most stable config types are stored as collection files, for example `extensions
 - `message-templates/user/<name>.yml`
 - `custom-data/groups/<name>.yml`
 - `extensions/<extension-key>.yml`
+- `extension-settings/<extension-key>.yml`
+- `extension-config/<extension-key>/<api>/<entity>/<name>.yml`
 
 Each split file uses `type: <handler>.item`, stores the editable record under `item`, and includes a `dependencies` section where dependencies are detectable. Collection files use `type: <handler>.collection` and an `items` list. Existing collection files for these handlers are still accepted for import, but the current export format rewrites them as split files.
 
@@ -295,6 +324,15 @@ Config Ignore accepts one relative YAML path or wildcard per line. Ignored files
 
 The safest target workflow is one site codebase moving configuration between its own environments: dev, stage, and production. Cross-site imports are possible but require extra review because extensions, sample data, IDs, and contributed-extension defaults can differ between sites.
 
+
+
+## Alpha 40 Notes
+
+- Added generic contributed/custom extension support instead of hard-coded handlers for individual extensions.
+- Generic Extension Entity Config discovers installed extension API4/APIv3 entities and exports records with stable identities under `extension-config/<extension>/<api>/<entity>/<item>.yml`.
+- Generic Extension-specific Settings discovers non-secret settings from Setting metadata and installed-extension namespaces; password/secret/token/API-key style names are blocked.
+- Dependency validation now gives clearer messages when required YAML is missing or when old YAML still contains local numeric IDs.
+- If a provider extension/API entity is unavailable on the target site, validation/import reports the missing provider instead of fataling.
 
 ## Alpha 39 Notes
 
