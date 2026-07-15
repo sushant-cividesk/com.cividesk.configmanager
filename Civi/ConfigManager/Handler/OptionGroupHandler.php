@@ -2,6 +2,19 @@
 namespace Civi\ConfigManager\Handler;
 
 class OptionGroupHandler extends AbstractHandler {
+  private bool $importWritesEnabled = TRUE;
+  private bool $deleteMissingEnabled = TRUE;
+
+  public function setImportWriteEnabled(bool $enabled): self {
+    $this->importWritesEnabled = $enabled;
+    return $this;
+  }
+
+  public function setDeleteMissingEnabled(bool $enabled): self {
+    $this->deleteMissingEnabled = $enabled;
+    return $this;
+  }
+
   public function getType(): string { return 'option-groups'; }
   public function getLabel(): string { return 'Option Groups and Values'; }
   public function getDirectory(): string { return 'option-groups'; }
@@ -123,20 +136,22 @@ class OptionGroupHandler extends AbstractHandler {
 
       try {
         if ($existingGroup) {
-          if ($this->desiredDiffers($existingGroup, $desiredGroup)) {
+          if ($this->importWritesEnabled && $this->desiredDiffers($existingGroup, $desiredGroup)) {
             $summary['groups']['update']++;
             if (!$dryRun) {
               $this->api4Update('OptionGroup', [['id', '=', $existingGroup['id']]], $desiredGroup);
             }
           }
-          else {
+          elseif ($this->importWritesEnabled) {
             $summary['groups']['skip']++;
           }
           $groupId = $existingGroup['id'];
         }
         else {
-          $summary['groups']['create']++;
-          if (!$dryRun) {
+          if ($this->importWritesEnabled) {
+            $summary['groups']['create']++;
+          }
+          if ($this->importWritesEnabled && !$dryRun) {
             $created = $this->api4Create('OptionGroup', $desiredGroup);
             $groupId = $created['id'] ?? NULL;
           }
@@ -185,6 +200,10 @@ class OptionGroupHandler extends AbstractHandler {
             }
           }
 
+          if (!$this->importWritesEnabled) {
+            continue;
+          }
+
           if ($existingValue) {
             if ($this->desiredDiffers($existingValue, $desiredValue)) {
               $summary['values']['update']++;
@@ -209,8 +228,8 @@ class OptionGroupHandler extends AbstractHandler {
           }
         }
 
-        if ($existingGroup) {
-          $this->warnExtraOptionValues($existingGroup, $desiredValueKeys, $duplicateValueNames, $filename, $summary);
+        if ($existingGroup && $this->deleteMissingEnabled) {
+          $this->handleExtraOptionValues($existingGroup, $desiredValueKeys, $duplicateValueNames, $filename, $dryRun, $summary);
         }
       }
       catch (\Throwable $e) {
@@ -226,14 +245,14 @@ class OptionGroupHandler extends AbstractHandler {
     return $summary;
   }
 
-  private function warnExtraOptionValues(array $existingGroup, array $desiredValueKeys, array $duplicateValueNames, string $filename, array &$summary): void {
+  private function handleExtraOptionValues(array $existingGroup, array $desiredValueKeys, array $duplicateValueNames, string $filename, bool $dryRun, array &$summary): void {
     if (empty($existingGroup['id'])) {
       return;
     }
 
     $existingValues = $this->api4Get('OptionValue', [
       ['option_group_id', '=', $existingGroup['id']],
-    ], ['id', 'name', 'label', 'value']);
+    ], ['id', 'name', 'label', 'value', 'is_reserved']);
 
     foreach ($existingValues as $existingValue) {
       $existingName = (string) ($existingValue['name'] ?? '');
@@ -244,11 +263,25 @@ class OptionGroupHandler extends AbstractHandler {
         continue;
       }
 
+      if (!empty($existingValue['is_reserved'])) {
+        $summary['values']['skip']++;
+        $summary['warnings'][] = [
+          'file' => $filename,
+          'name' => $existingName,
+          'message' => 'Reserved option value exists in CiviCRM but not in YAML. It was left unchanged for safety: ' . $existingName,
+        ];
+        continue;
+      }
+
+      $summary['values']['delete']++;
       $summary['warnings'][] = [
         'file' => $filename,
         'name' => $existingName,
-        'message' => 'Option value exists in CiviCRM but not in YAML. It was left unchanged by this handler; delete support for individual option values is still conservative.',
+        'message' => 'Option value exists in CiviCRM but not in YAML and will be deleted when import is applied: ' . $existingName,
       ];
+      if (!$dryRun && !empty($existingValue['id'])) {
+        $this->api4Delete('OptionValue', [['id', '=', (int) $existingValue['id']]]);
+      }
     }
   }
 

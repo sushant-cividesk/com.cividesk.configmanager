@@ -235,13 +235,12 @@ class ConfigManager {
       // Custom fields can depend on option groups and the contact type scope.
       'custom-data' => ['option-groups', 'contact-types', 'site-tokens'],
 
-      // Generic extension config should move with the provider extension and any detectable related settings/config.
-      'extension-config' => ['extensions', 'extension-settings', 'message-templates', 'contact-types', 'custom-data', 'option-groups'],
-      'extension-settings' => ['extensions'],
+      // Extension-owned config is bundled under each extension file.
+      'extensions' => ['message-templates', 'contact-types', 'custom-data', 'option-groups'],
 
       // Relationship types can depend on contact/sub-contact types.
       'relationship-types' => ['contact-types'],
-      'civirules' => ['extensions', 'extension-settings'],
+      'civirules' => ['extensions'],
       'site-tokens' => ['extensions'],
     ];
   }
@@ -448,8 +447,6 @@ class ConfigManager {
       'formbuilder-afforms' => ['formbuilder/afforms/' . $safe . '.yml'],
       'scheduled-jobs' => ['scheduled-jobs/' . $safe . '.yml'],
       'site-tokens' => ['site-tokens/' . $safe . '.yml'],
-      'extension-config' => ['extension-config/*/*/*/' . $safe . '.yml', 'extension-config/*/*/' . $safe . '.yml'],
-      'extension-settings' => ['extension-settings/' . $safe . '.yml'],
       'civirules' => ['civirules/' . $safe . '.yml', 'civirules/*/' . $safe . '.yml'],
     ];
     return $map[$type] ?? [$type . '/' . $safe . '.yml'];
@@ -586,6 +583,30 @@ class ConfigManager {
       $update += (int) ($item['update'] ?? 0);
       $delete += (int) ($item['delete'] ?? 0);
       $skip += (int) ($item['skip'] ?? 0);
+
+      if (!empty($item['groups']) && is_array($item['groups'])) {
+        $create += (int) ($item['groups']['create'] ?? 0);
+        $update += (int) ($item['groups']['update'] ?? 0);
+        $skip += (int) ($item['groups']['skip'] ?? 0);
+      }
+      if (!empty($item['values']) && is_array($item['values'])) {
+        $create += (int) ($item['values']['create'] ?? 0);
+        $update += (int) ($item['values']['update'] ?? 0);
+        $delete += (int) ($item['values']['delete'] ?? 0);
+        $skip += (int) ($item['values']['skip'] ?? 0);
+      }
+      if (!empty($item['settings']) && is_array($item['settings'])) {
+        $update += (int) ($item['settings']['update'] ?? 0);
+        $skip += (int) ($item['settings']['skip'] ?? 0);
+      }
+      if (!empty($item['config']) && is_array($item['config'])) {
+        $create += (int) ($item['config']['create'] ?? 0);
+        $update += (int) ($item['config']['update'] ?? 0);
+        $delete += (int) ($item['config']['delete'] ?? 0);
+        $skip += (int) ($item['config']['skip'] ?? 0);
+      }
+      $update += (int) ($item['install'] ?? 0) + (int) ($item['enable'] ?? 0) + (int) ($item['disable'] ?? 0);
+
       $errors += !empty($item['errors']) ? count($item['errors']) : 0;
       $warnings += !empty($item['warnings']) ? count($item['warnings']) : 0;
     }

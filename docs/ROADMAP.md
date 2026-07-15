@@ -37,9 +37,9 @@ Before treating phase 1 as complete, finish:
 ## Phase 2 candidates
 
 - SQL query definitions.
-- Mosaico/contact-layout/base-template asset deployment review through the generic extension-config handler.
+- Mosaico/contact-layout/base-template asset deployment review through the generic bundled bundled extension config support.
 - More complete CiviRules rule-component dependency ordering.
-- Safer generic extension-config classification for extension APIs that expose operational data instead of deployable config.
+- Safer generic bundled extension config classification for extension APIs that expose operational data instead of deployable config.
 - Environment override support.
 - Further harden destructive import dependency checks and per-record dependency ordering.
 - Global CLI installer/launcher after extension install.

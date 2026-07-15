@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha41-core
+
+- Removed separate Extension Entity Config and Extension-specific Settings managed types to avoid producing hundreds of duplicate YAML files.
+- Bundled safely discoverable contributed/custom extension settings and extension-provided API config under each `extensions/<extension-key>.yml` file.
+- Skipped CiviCRM core component extensions and already-managed core handlers during generic extension-config discovery to avoid exporting operational data such as line items, events, and duplicate SearchKit/FormBuilder config.
+- Added import delete/revert support for non-reserved option values that exist in CiviCRM but are missing from YAML. Reserved option values remain protected and are reported as warnings.
+- Improved import summary totals so nested option value and bundled extension config changes are counted correctly.
+
 ## 0.1.0-alpha40-core
 
 - Reworked contributed/custom extension support to use generic discovery instead of extension-specific handlers.

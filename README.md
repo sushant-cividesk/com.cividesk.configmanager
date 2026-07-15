@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha40-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha41-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -174,8 +174,7 @@ Current export/diff/validate support includes:
 - SearchKit Displays
 - FormBuilder Afforms
 - Site Tokens, when `SiteToken` API4 exists
-- Generic Extension Entity Config, for extension-provided API4/APIv3 entities with stable identities
-- Extension-specific Settings, discovered generically from non-secret setting metadata/namespaces
+- Contributed/custom extension settings and extension-provided config, bundled under each extension YAML file when safely discoverable
 - CiviRules, alpha support when CiviRules API4 entities exist
 
 Current create/update import support includes:
@@ -195,8 +194,7 @@ Current create/update import support includes:
 - SearchKit Displays
 - FormBuilder Afforms
 - Site Tokens, when `SiteToken` API4 exists
-- Generic Extension Entity Config, for extension-provided API4/APIv3 entities with stable identities
-- Extension-specific Settings, discovered generically from non-secret setting metadata/namespaces
+- Contributed/custom extension settings and extension-provided config, bundled under each extension YAML file when safely discoverable
 - CiviRules, alpha support when CiviRules API4 entities exist
 
 Payment Processors remain export/diff only because exported data is sanitized and may omit environment-specific or secret values.
@@ -213,10 +211,8 @@ Most stable config types are stored as collection files, for example `extensions
 - `message-templates/user/<name>.yml`
 - `custom-data/groups/<name>.yml`
 - `extensions/<extension-key>.yml`
-- `extension-settings/<extension-key>.yml`
-- `extension-config/<extension-key>/<api>/<entity>/<name>.yml`
 
-Each split file uses `type: <handler>.item`, stores the editable record under `item`, and includes a `dependencies` section where dependencies are detectable. Collection files use `type: <handler>.collection` and an `items` list. Existing collection files for these handlers are still accepted for import, but the current export format rewrites them as split files.
+Each split file uses `type: <handler>.item`, stores the editable record under `item`, and includes a `dependencies` section where dependencies are detectable. Extension-owned settings and extension-provided API config are bundled into `extensions/<extension-key>.yml` under `settings` and `config` instead of creating a separate file tree. Collection files use `type: <handler>.collection` and an `items` list. Existing collection files for these handlers are still accepted for import, but the current export format rewrites them as split files.
 
 The export manifest is written to `manifest.yml`. Its `exported_with` value is read from `info.xml` at runtime, so the extension version only needs to be changed in `info.xml` for generated export metadata.
 
@@ -325,6 +321,14 @@ Config Ignore accepts one relative YAML path or wildcard per line. Ignored files
 The safest target workflow is one site codebase moving configuration between its own environments: dev, stage, and production. Cross-site imports are possible but require extra review because extensions, sample data, IDs, and contributed-extension defaults can differ between sites.
 
 
+
+## Alpha 41 Notes
+
+- Removed the separate `extension-config` and `extension-settings` managed types from the registry to prevent hundreds of duplicate YAML files.
+- Bundled safely discoverable contributed/custom extension settings and extension API config under each `extensions/<extension-key>.yml` file.
+- Generic extension config discovery now skips CiviCRM core component extensions and already-managed core handlers so operational data such as line items, events, financial accounts, SearchKit, and FormBuilder is not duplicated.
+- Added option-value delete/revert support for non-reserved option values that exist in CiviCRM but are missing from YAML. Reserved option values are still skipped with a warning.
+- Import summary counts now include nested option value, bundled extension setting, and bundled extension config create/update/delete results.
 
 ## Alpha 40 Notes
 

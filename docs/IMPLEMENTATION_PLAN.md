@@ -51,7 +51,7 @@ Handlers should run in this order unless a new dependency requires adjustment:
 13. SearchKit Saved Searches
 14. SearchKit Displays
 15. FormBuilder Afforms
-16. Generic Extension Entity Config, for extension-provided API4/APIv3 config entities
+16. Bundled Extension Config, for extension-provided API4/APIv3 config entities
 17. CiviRules, alpha support
 
 ## File layout decisions
@@ -62,7 +62,7 @@ Use split item files for config types that are large, commonly edited, or depend
 - SearchKit Saved Searches
 - SearchKit Displays
 - FormBuilder Afforms
-- Generic Extension Entity Config
+- Bundled Extension Config
 
 Keep collection files for smaller stable types unless diffs become difficult to review. When adding a new split-file handler, include dependency metadata in each item file and document the dependency order here instead of duplicating release notes.
 
@@ -70,7 +70,7 @@ Temporary filtered exports are expanded by type for known dependency-sensitive g
 
 - SearchKit Saved Searches, SearchKit Displays, and FormBuilder Afforms are exported together.
 - Custom Groups and Fields can bring Option Groups, Contact Types, and Site Tokens.
-- Generic Extension Entity Config can bring Extensions, extension settings, and detectable related managed config.
+- Bundled Extension Config can bring Extensions, extension settings, and detectable related managed config.
 - Relationship Types can bring Contact Types.
 
 Type-level expansion is still used for temporary filtered exports, and split SearchKit/FormBuilder YAML files now also carry per-record dependency metadata where it can be detected. Missing managed dependency YAML files are import-blocking validation errors.
@@ -97,7 +97,7 @@ Create/update import is currently implemented for:
 - SearchKit Saved Searches
 - SearchKit Displays
 - FormBuilder Afforms
-- Generic Extension Entity Config
+- Bundled Extension Config
 
 Import can create, update, and delete supported records according to YAML. Payment Processors remain export/diff only because sanitized exports may omit required environment-specific values.
 

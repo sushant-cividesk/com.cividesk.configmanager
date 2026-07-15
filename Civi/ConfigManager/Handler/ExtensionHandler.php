@@ -6,6 +6,7 @@ use Civi\ConfigManager\Version;
 class ExtensionHandler extends AbstractHandler {
   private bool $importWritesEnabled = TRUE;
   private bool $deleteMissingEnabled = TRUE;
+  private ?array $discoveredEntityDefinitions = NULL;
 
   public function getType(): string { return 'extensions'; }
   public function getLabel(): string { return 'Extensions'; }
@@ -24,20 +25,32 @@ class ExtensionHandler extends AbstractHandler {
 
   public function export(): array {
     $manager = \CRM_Extension_System::singleton()->getManager();
+    $settingsByExtension = $this->discoverSettingsByExtension();
+    $configByExtension = $this->discoverConfigByExtension();
+
     $files = [];
     foreach ($manager->getStatuses() as $key => $status) {
-      $files[] = [
-        'filename' => $this->safeName((string) $key) . '.yml',
-        'data' => [
-          'schema_version' => 1,
-          'type' => 'extension.item',
-          'key' => (string) $key,
-          'dependencies' => $this->dependenciesForExtension((string) $key),
-          'extension' => [
-            'key' => (string) $key,
-            'status' => (string) $status,
-          ],
+      $key = (string) $key;
+      $data = [
+        'schema_version' => 1,
+        'type' => 'extension.item',
+        'key' => $key,
+        'dependencies' => $this->dependenciesForExtension($key),
+        'extension' => [
+          'key' => $key,
+          'status' => (string) $status,
         ],
+      ];
+      if (!empty($settingsByExtension[$key])) {
+        $data['settings'] = $settingsByExtension[$key];
+      }
+      if (!empty($configByExtension[$key])) {
+        $data['config'] = $configByExtension[$key];
+      }
+
+      $files[] = [
+        'filename' => $this->safeName($key) . '.yml',
+        'data' => $data,
       ];
     }
     usort($files, fn($a, $b) => strcmp($a['filename'], $b['filename']));
@@ -46,6 +59,9 @@ class ExtensionHandler extends AbstractHandler {
 
   public function validate(array $items): array {
     $errors = [];
+    $warnings = [];
+    $definitions = $this->entityDefinitionsByKey();
+
     foreach ($items as $filename => $item) {
       $type = (string) ($item['type'] ?? '');
       if ($type === 'extensions.collection') {
@@ -56,20 +72,58 @@ class ExtensionHandler extends AbstractHandler {
         }
         continue;
       }
-      if ($type === 'extension.item') {
-        $extension = (array) ($item['extension'] ?? []);
-        if (empty($extension['key']) && empty($item['key'])) {
-          $errors[] = ['file' => $filename, 'message' => 'Extension item is missing extension.key.'];
-        }
+      if ($type !== 'extension.item') {
+        $errors[] = ['file' => $filename, 'message' => 'Invalid type. Expected extension.item.'];
         continue;
       }
-      $errors[] = ['file' => $filename, 'message' => 'Invalid type. Expected extension.item.'];
+
+      $extension = (array) ($item['extension'] ?? []);
+      $key = (string) ($extension['key'] ?? ($item['key'] ?? ''));
+      if ($key === '') {
+        $errors[] = ['file' => $filename, 'message' => 'Extension item is missing extension.key.'];
+        continue;
+      }
+
+      if (!empty($item['settings'])) {
+        foreach ((array) $item['settings'] as $settingName => $settingValue) {
+          $settingName = (string) $settingName;
+          if (!$this->isSafeSettingName($settingName)) {
+            $errors[] = ['file' => $filename, 'message' => 'Unsafe extension setting name: ' . $settingName];
+          }
+          if ($this->isSensitiveSettingName($settingName)) {
+            $errors[] = ['file' => $filename, 'message' => 'Sensitive extension setting is blocked from import: ' . $settingName];
+          }
+          if (!$this->settingNameLooksRelatedToExtension($settingName, $key)) {
+            $warnings[] = ['file' => $filename, 'message' => 'Setting name does not clearly match extension namespace; review before importing: ' . $settingName];
+          }
+        }
+      }
+
+      foreach ($this->flattenBundledConfig($item['config'] ?? []) as $entry) {
+        $definitionKey = $this->definitionKey($key, $entry['api'], $entry['entity']);
+        if (!isset($definitions[$definitionKey])) {
+          $errors[] = [
+            'file' => $filename,
+            'message' => sprintf('Bundled extension config provider is not available: extension %s, %s entity %s. Install/enable that extension before import.', $key, $entry['api'], $entry['entity']),
+          ];
+          continue;
+        }
+        $row = (array) ($entry['item']['item'] ?? []);
+        $identityField = (string) ($entry['item']['identity_field'] ?? '');
+        if ($identityField === '' || empty($row[$identityField])) {
+          $identityField = (string) ($this->identityField($row) ?? '');
+        }
+        if ($identityField === '') {
+          $errors[] = ['file' => $filename, 'message' => sprintf('Bundled extension config for %s %s is missing a stable identity field.', $entry['api'], $entry['entity'])];
+        }
+      }
     }
+
     return [
       'type' => $this->getType(),
       'valid' => empty($errors),
       'errors' => $errors,
-      'warnings' => [],
+      'warnings' => $warnings,
       'count' => count($items),
     ];
   }
@@ -83,6 +137,8 @@ class ExtensionHandler extends AbstractHandler {
       'enable' => 0,
       'disable' => 0,
       'delete' => 0,
+      'settings' => ['update' => 0, 'skip' => 0],
+      'config' => ['create' => 0, 'update' => 0, 'delete' => 0, 'skip' => 0],
       'skip' => 0,
       'warnings' => [],
       'errors' => [],
@@ -91,10 +147,13 @@ class ExtensionHandler extends AbstractHandler {
     $manager = \CRM_Extension_System::singleton()->getManager();
     $current = (array) $manager->getStatuses();
     $desiredKeys = [];
+    $definitions = $this->entityDefinitionsByKey();
+    $desiredConfigKeys = [];
 
     foreach ($this->expandItems($items, $summary) as $entry) {
       $filename = $entry['filename'];
       $extension = (array) $entry['extension'];
+      $fullItem = (array) ($entry['item'] ?? []);
       $key = (string) ($extension['key'] ?? '');
       $desired = strtolower((string) ($extension['status'] ?? ''));
       if ($key === '') {
@@ -102,63 +161,49 @@ class ExtensionHandler extends AbstractHandler {
         continue;
       }
       $desiredKeys[$key] = TRUE;
-      if (!$this->importWritesEnabled) {
-        continue;
-      }
-      $actual = strtolower((string) ($current[$key] ?? 'missing'));
-      if ($actual === $desired) {
-        $summary['skip']++;
-        continue;
+
+      if ($this->importWritesEnabled) {
+        $this->applyExtensionStatus($manager, $current, $filename, $key, $desired, $dryRun, $summary);
+        $this->applyBundledSettings($filename, $key, (array) ($fullItem['settings'] ?? []), $dryRun, $summary);
       }
 
-      try {
-        if (in_array($desired, ['installed', 'enabled'], TRUE)) {
-          if ($actual === 'missing') {
-            $summary['errors'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Extension code is not available on this site: ' . $key];
-            continue;
-          }
-          if (in_array($actual, ['uninstalled', 'not installed', 'not_installed'], TRUE)) {
-            $summary['install']++;
-            $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Extension will be installed: ' . $key];
-            if (!$dryRun) {
-              $this->callManager($manager, 'install', [$key]);
-            }
-          }
-          else {
-            $summary['enable']++;
-            $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Extension will be enabled: ' . $key];
-            if (!$dryRun) {
-              $this->callManager($manager, 'enable', [$key]);
-            }
-          }
+      foreach ($this->flattenBundledConfig($fullItem['config'] ?? []) as $configEntry) {
+        $definitionKey = $this->definitionKey($key, $configEntry['api'], $configEntry['entity']);
+        if (!isset($definitions[$definitionKey])) {
+          $summary['errors'][] = [
+            'file' => $filename,
+            'message' => sprintf('Bundled extension config provider is not available: extension %s, %s entity %s.', $key, $configEntry['api'], $configEntry['entity']),
+          ];
+          continue;
         }
-        elseif ($desired === 'disabled') {
-          if ($key === Version::EXTENSION_KEY) {
-            $summary['skip']++;
-            $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Self-disable is skipped so Configuration Manager can finish the import safely.'];
-            continue;
-          }
-          $summary['disable']++;
-          $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Extension will be disabled: ' . $key];
-          if (!$dryRun) {
-            $this->callManager($manager, 'disable', [$key]);
-          }
+        $definition = $definitions[$definitionKey];
+        $configItem = (array) $configEntry['item'];
+        $row = (array) ($configItem['item'] ?? []);
+        $identityField = (string) ($configItem['identity_field'] ?? '');
+        if ($identityField === '' || empty($row[$identityField])) {
+          $identityField = (string) ($this->identityField($row) ?? '');
         }
-        elseif (in_array($desired, ['uninstalled', 'not installed', 'not_installed'], TRUE)) {
-          $summary['skip']++;
-          $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Uninstall is skipped for safety: ' . $key];
+        if ($identityField === '') {
+          $summary['errors'][] = ['file' => $filename, 'message' => sprintf('Bundled extension config for %s %s is missing a stable identity field.', $configEntry['api'], $configEntry['entity'])];
+          continue;
         }
-        else {
-          $summary['skip']++;
-          $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Unknown target status for ' . $key . ': ' . $desired];
+        $identity = (string) $row[$identityField];
+        $desiredConfigKeys[$definitionKey][$this->identityKey($identityField, $identity)] = TRUE;
+
+        if ($this->importWritesEnabled) {
+          $this->applyBundledConfigItem($filename, $definition, $row, $identityField, $identity, $dryRun, $summary);
         }
-      }
-      catch (\Throwable $e) {
-        $summary['errors'][] = ['file' => $filename, 'extension' => $key, 'message' => $e->getMessage()];
       }
     }
 
     if ($this->deleteMissingEnabled) {
+      foreach ($desiredConfigKeys as $definitionKey => $desiredForEntity) {
+        if (!isset($definitions[$definitionKey])) {
+          continue;
+        }
+        $this->deleteMissingBundledConfig($definitions[$definitionKey], $desiredForEntity, $dryRun, $summary);
+      }
+
       foreach ($current as $key => $status) {
         if (isset($desiredKeys[(string) $key]) || (string) $key === Version::EXTENSION_KEY) {
           continue;
@@ -173,11 +218,146 @@ class ExtensionHandler extends AbstractHandler {
   }
 
   protected function normaliseDataForDiff(array $data): array {
-    // Backward compatibility for old collection files.
     if (($data['type'] ?? '') === 'extensions.collection') {
       return $data;
     }
     return $data;
+  }
+
+  private function applyExtensionStatus($manager, array $current, string $filename, string $key, string $desired, bool $dryRun, array &$summary): void {
+    $actual = strtolower((string) ($current[$key] ?? 'missing'));
+    if ($actual === $desired) {
+      $summary['skip']++;
+      return;
+    }
+
+    try {
+      if (in_array($desired, ['installed', 'enabled'], TRUE)) {
+        if ($actual === 'missing') {
+          $summary['errors'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Extension code is not available on this site: ' . $key];
+          return;
+        }
+        if (in_array($actual, ['uninstalled', 'not installed', 'not_installed'], TRUE)) {
+          $summary['install']++;
+          $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Extension will be installed: ' . $key];
+          if (!$dryRun) {
+            $this->callManager($manager, 'install', [$key]);
+          }
+        }
+        else {
+          $summary['enable']++;
+          $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Extension will be enabled: ' . $key];
+          if (!$dryRun) {
+            $this->callManager($manager, 'enable', [$key]);
+          }
+        }
+      }
+      elseif ($desired === 'disabled') {
+        if ($key === Version::EXTENSION_KEY) {
+          $summary['skip']++;
+          $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Self-disable is skipped so Configuration Manager can finish the import safely.'];
+          return;
+        }
+        $summary['disable']++;
+        $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Extension will be disabled: ' . $key];
+        if (!$dryRun) {
+          $this->callManager($manager, 'disable', [$key]);
+        }
+      }
+      elseif (in_array($desired, ['uninstalled', 'not installed', 'not_installed'], TRUE)) {
+        $summary['skip']++;
+        $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Uninstall is skipped for safety: ' . $key];
+      }
+      else {
+        $summary['skip']++;
+        $summary['warnings'][] = ['file' => $filename, 'extension' => $key, 'message' => 'Unknown target status for ' . $key . ': ' . $desired];
+      }
+    }
+    catch (\Throwable $e) {
+      $summary['errors'][] = ['file' => $filename, 'extension' => $key, 'message' => $e->getMessage()];
+    }
+  }
+
+  private function applyBundledSettings(string $filename, string $extensionKey, array $settings, bool $dryRun, array &$summary): void {
+    foreach ($settings as $name => $value) {
+      $name = (string) $name;
+      if (!$this->isSafeSettingName($name) || $this->isSensitiveSettingName($name)) {
+        $summary['errors'][] = ['file' => $filename, 'message' => 'Unsafe or sensitive extension setting skipped: ' . $name];
+        continue;
+      }
+      if (!$this->settingNameLooksRelatedToExtension($name, $extensionKey)) {
+        $summary['warnings'][] = ['file' => $filename, 'message' => 'Setting namespace is not clearly tied to ' . $extensionKey . '; skipped for safety: ' . $name];
+        $summary['settings']['skip']++;
+        continue;
+      }
+      $current = \Civi::settings()->get($name);
+      if ($this->normaliseComparableValue($current) !== $this->normaliseComparableValue($value)) {
+        $summary['settings']['update']++;
+        if (!$dryRun) {
+          \Civi::settings()->set($name, $value);
+        }
+      }
+      else {
+        $summary['settings']['skip']++;
+      }
+    }
+  }
+
+  private function applyBundledConfigItem(string $filename, array $definition, array $row, string $identityField, string $identity, bool $dryRun, array &$summary): void {
+    try {
+      $desired = $this->cleanEntityRowForImport($row, $definition);
+      $existing = $this->findExistingEntityRow($definition, $identityField, $identity);
+      if ($existing) {
+        if ($this->desiredDiffers($existing, $desired)) {
+          $summary['config']['update']++;
+          if (!$dryRun) {
+            $this->updateEntityRow($definition, (array) $existing, $desired);
+          }
+        }
+        else {
+          $summary['config']['skip']++;
+        }
+      }
+      else {
+        $summary['config']['create']++;
+        if (!$dryRun) {
+          $this->createEntityRow($definition, $desired);
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      $summary['errors'][] = ['file' => $filename, 'name' => $identity, 'message' => $this->formatEntityImportException($e, $definition, $identity)];
+    }
+  }
+
+  private function deleteMissingBundledConfig(array $definition, array $desiredKeys, bool $dryRun, array &$summary): void {
+    foreach ($this->fetchEntityRows($definition) as $existing) {
+      $existing = (array) $existing;
+      if (empty($existing['id'])) {
+        continue;
+      }
+      $identityField = $this->identityField($existing);
+      if ($identityField === NULL) {
+        continue;
+      }
+      $identity = (string) $existing[$identityField];
+      if (isset($desiredKeys[$this->identityKey($identityField, $identity)])) {
+        continue;
+      }
+      $summary['config']['delete']++;
+      $summary['warnings'][] = [
+        'name' => $identity,
+        'message' => sprintf('Bundled extension config %s %s exists in CiviCRM but not YAML and will be deleted when import is applied: %s', $definition['api'], $definition['entity'], $identity),
+      ];
+      if (!$dryRun) {
+        try {
+          $this->deleteEntityRow($definition, (int) $existing['id']);
+        }
+        catch (\Throwable $e) {
+          $summary['errors'][] = ['name' => $identity, 'message' => 'Delete failed: ' . $e->getMessage()];
+        }
+      }
+    }
   }
 
   private function expandItems(array $items, array &$summary): array {
@@ -186,7 +366,7 @@ class ExtensionHandler extends AbstractHandler {
       $type = (string) ($item['type'] ?? '');
       if ($type === 'extensions.collection') {
         foreach (($item['items'] ?? []) as $extension) {
-          $rows[] = ['filename' => $filename, 'extension' => (array) $extension];
+          $rows[] = ['filename' => $filename, 'extension' => (array) $extension, 'item' => ['extension' => (array) $extension]];
         }
       }
       elseif ($type === 'extension.item') {
@@ -194,7 +374,7 @@ class ExtensionHandler extends AbstractHandler {
         if (empty($extension['key']) && !empty($item['key'])) {
           $extension['key'] = $item['key'];
         }
-        $rows[] = ['filename' => $filename, 'extension' => $extension];
+        $rows[] = ['filename' => $filename, 'extension' => $extension, 'item' => (array) $item];
       }
       else {
         $summary['errors'][] = ['file' => $filename, 'message' => 'Invalid extension YAML type. Expected extension.item.'];
@@ -205,6 +385,501 @@ class ExtensionHandler extends AbstractHandler {
 
   private function dependenciesForExtension(string $key): array {
     return [];
+  }
+
+  private function discoverSettingsByExtension(): array {
+    $groups = [];
+    foreach ($this->discoverSettingMetadata() as $name => $meta) {
+      $name = (string) $name;
+      if (!$this->isSafeSettingName($name) || $this->isSensitiveSettingName($name)) {
+        continue;
+      }
+      $extensionKey = $this->extensionKeyForSetting($name, (array) $meta);
+      if ($extensionKey === '' || $this->isGenericConfigSkippedExtension($extensionKey)) {
+        continue;
+      }
+      $groups[$extensionKey][$name] = \Civi::settings()->get($name);
+    }
+    foreach ($groups as &$settings) {
+      ksort($settings, SORT_NATURAL | SORT_FLAG_CASE);
+    }
+    ksort($groups, SORT_NATURAL | SORT_FLAG_CASE);
+    return $groups;
+  }
+
+  private function discoverConfigByExtension(): array {
+    $groups = [];
+    foreach ($this->discoverEntityDefinitions() as $definition) {
+      $extensionKey = (string) $definition['extension'];
+      if ($this->isGenericConfigSkippedExtension($extensionKey)) {
+        continue;
+      }
+      foreach ($this->fetchEntityRows($definition) as $row) {
+        $row = $this->cleanEntityRowForExport((array) $row, $definition);
+        $identityField = $this->identityField($row);
+        if ($identityField === NULL) {
+          continue;
+        }
+        $identity = (string) $row[$identityField];
+        $groups[$extensionKey][(string) $definition['api']][(string) $definition['entity']][] = [
+          'name' => $identity,
+          'identity_field' => $identityField,
+          'dependencies' => $this->dependenciesForEntityRow($row, $definition),
+          'item' => $row,
+        ];
+      }
+    }
+    foreach ($groups as &$apiGroups) {
+      foreach ($apiGroups as &$entityGroups) {
+        foreach ($entityGroups as &$rows) {
+          usort($rows, fn($a, $b) => strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? '')));
+        }
+        ksort($entityGroups, SORT_NATURAL | SORT_FLAG_CASE);
+      }
+      ksort($apiGroups, SORT_NATURAL | SORT_FLAG_CASE);
+    }
+    ksort($groups, SORT_NATURAL | SORT_FLAG_CASE);
+    return $groups;
+  }
+
+  private function flattenBundledConfig($config): array {
+    $entries = [];
+    foreach ((array) $config as $api => $entities) {
+      foreach ((array) $entities as $entity => $items) {
+        foreach ((array) $items as $item) {
+          if (is_array($item)) {
+            $entries[] = ['api' => (string) $api, 'entity' => (string) $entity, 'item' => $item];
+          }
+        }
+      }
+    }
+    return $entries;
+  }
+
+  private function discoverEntityDefinitions(): array {
+    if ($this->discoveredEntityDefinitions !== NULL) {
+      return $this->discoveredEntityDefinitions;
+    }
+    $definitions = [];
+    foreach ($this->extensionBasePaths() as $extensionKey => $basePath) {
+      if ($this->isGenericConfigSkippedExtension($extensionKey)) {
+        continue;
+      }
+      foreach ($this->discoverApi4Entities($extensionKey, $basePath) as $definition) {
+        $definitions[$this->definitionKey($definition['extension'], $definition['api'], $definition['entity'])] = $definition;
+      }
+      foreach ($this->discoverApi3Entities($extensionKey, $basePath) as $definition) {
+        $definitions[$this->definitionKey($definition['extension'], $definition['api'], $definition['entity'])] = $definition;
+      }
+    }
+    uasort($definitions, function($a, $b) {
+      return strcmp($a['extension'] . ':' . $a['api'] . ':' . $a['entity'], $b['extension'] . ':' . $b['api'] . ':' . $b['entity']);
+    });
+    $this->discoveredEntityDefinitions = array_values($definitions);
+    return $this->discoveredEntityDefinitions;
+  }
+
+  private function entityDefinitionsByKey(): array {
+    $definitions = [];
+    foreach ($this->discoverEntityDefinitions() as $definition) {
+      $definitions[$this->definitionKey($definition['extension'], $definition['api'], $definition['entity'])] = $definition;
+    }
+    return $definitions;
+  }
+
+  private function extensionBasePaths(): array {
+    $paths = [];
+    try {
+      $system = \CRM_Extension_System::singleton();
+      $manager = $system->getManager();
+      $mapper = method_exists($system, 'getMapper') ? $system->getMapper() : NULL;
+      foreach ((array) $manager->getStatuses() as $key => $status) {
+        $status = strtolower((string) $status);
+        if (!in_array($status, ['installed', 'enabled'], TRUE)) {
+          continue;
+        }
+        $base = '';
+        if ($mapper && method_exists($mapper, 'keyToBasePath')) {
+          $base = (string) $mapper->keyToBasePath((string) $key);
+        }
+        elseif ($mapper && method_exists($mapper, 'getBasePath')) {
+          $base = (string) $mapper->getBasePath((string) $key);
+        }
+        if ($base !== '' && is_dir($base)) {
+          $paths[(string) $key] = rtrim($base, DIRECTORY_SEPARATOR);
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      // Discovery is best-effort.
+    }
+    ksort($paths, SORT_NATURAL | SORT_FLAG_CASE);
+    return $paths;
+  }
+
+  private function discoverApi4Entities(string $extensionKey, string $basePath): array {
+    $dir = $basePath . '/Civi/Api4';
+    if (!is_dir($dir)) {
+      return [];
+    }
+    $definitions = [];
+    foreach (glob($dir . '/*.php') ?: [] as $file) {
+      $entity = basename($file, '.php');
+      if ($entity === 'ConfigManager') {
+        continue;
+      }
+      $class = 'Civi\\Api4\\' . $entity;
+      if (!class_exists($class) || !$this->api4EntityUsable($entity)) {
+        continue;
+      }
+      $definitions[] = [
+        'extension' => $extensionKey,
+        'api' => 'api4',
+        'entity' => $entity,
+        'class' => $class,
+        'fields' => $this->api4Fields($entity),
+      ];
+    }
+    return $definitions;
+  }
+
+  private function discoverApi3Entities(string $extensionKey, string $basePath): array {
+    $dir = $basePath . '/api/v3';
+    if (!is_dir($dir) || !function_exists('civicrm_api3')) {
+      return [];
+    }
+    $definitions = [];
+    foreach (glob($dir . '/*.php') ?: [] as $file) {
+      $entity = basename($file, '.php');
+      if ($entity === '' || in_array(strtolower($entity), ['utils'], TRUE)) {
+        continue;
+      }
+      if (!$this->api3EntityUsable($entity)) {
+        continue;
+      }
+      $definitions[] = [
+        'extension' => $extensionKey,
+        'api' => 'api3',
+        'entity' => $entity,
+        'fields' => [],
+      ];
+    }
+    return $definitions;
+  }
+
+  private function api4EntityUsable(string $entity): bool {
+    $class = 'Civi\\Api4\\' . $entity;
+    if (!class_exists($class) || !method_exists($class, 'get')) {
+      return FALSE;
+    }
+    try {
+      $class::get(FALSE)->setLimit(1)->execute();
+      return TRUE;
+    }
+    catch (\Throwable $e) {
+      return FALSE;
+    }
+  }
+
+  private function api3EntityUsable(string $entity): bool {
+    try {
+      civicrm_api3($entity, 'get', ['sequential' => 1, 'options' => ['limit' => 1]]);
+      return TRUE;
+    }
+    catch (\Throwable $e) {
+      return FALSE;
+    }
+  }
+
+  private function api4Fields(string $entity): array {
+    $class = 'Civi\\Api4\\' . $entity;
+    if (!class_exists($class) || !method_exists($class, 'getFields')) {
+      return [];
+    }
+    try {
+      $rows = (array) $class::getFields(FALSE)->execute();
+      $fields = [];
+      foreach ($rows as $row) {
+        $row = (array) $row;
+        if (!empty($row['name'])) {
+          $fields[(string) $row['name']] = $row;
+        }
+      }
+      return $fields;
+    }
+    catch (\Throwable $e) {
+      return [];
+    }
+  }
+
+  private function fetchEntityRows(array $definition): array {
+    if ($definition['api'] === 'api4') {
+      $class = (string) $definition['class'];
+      try {
+        return (array) $class::get(FALSE)->addSelect('*')->execute();
+      }
+      catch (\Throwable $e) {
+        return [];
+      }
+    }
+    try {
+      $result = civicrm_api3((string) $definition['entity'], 'get', ['sequential' => 1, 'options' => ['limit' => 0]]);
+      return array_values((array) ($result['values'] ?? []));
+    }
+    catch (\Throwable $e) {
+      return [];
+    }
+  }
+
+  private function cleanEntityRowForExport(array $row, array $definition): array {
+    $row = $this->stripRuntime($row);
+    if ($definition['api'] === 'api4') {
+      $row = $this->stripReadOnlyFields($row, (array) ($definition['fields'] ?? []));
+    }
+    ksort($row, SORT_NATURAL | SORT_FLAG_CASE);
+    return $row;
+  }
+
+  private function cleanEntityRowForImport(array $row, array $definition): array {
+    $row = $this->stripRuntime($row);
+    if ($definition['api'] === 'api4') {
+      $row = $this->stripReadOnlyFields($row, (array) ($definition['fields'] ?? []));
+    }
+    return $row;
+  }
+
+  private function stripRuntime(array $row): array {
+    unset($row['id'], $row['created_date'], $row['modified_date'], $row['created_id'], $row['modified_id']);
+    foreach ($row as $key => $value) {
+      if (is_array($value)) {
+        $row[$key] = $this->stripRuntime($value);
+      }
+    }
+    return $row;
+  }
+
+  private function stripReadOnlyFields(array $row, array $fields): array {
+    foreach ($fields as $name => $field) {
+      $field = (array) $field;
+      if (!empty($field['readonly']) || !empty($field['read_only']) || (($field['type'] ?? '') === 'Extra')) {
+        unset($row[$name]);
+      }
+    }
+    return $row;
+  }
+
+  private function identityField(array $row): ?string {
+    foreach (['name', 'title', 'label', 'workflow_name', 'machine_name', 'key'] as $field) {
+      if (!empty($row[$field]) && is_scalar($row[$field])) {
+        return $field;
+      }
+    }
+    return NULL;
+  }
+
+  private function findExistingEntityRow(array $definition, string $identityField, string $identity): ?array {
+    if ($definition['api'] === 'api4') {
+      return $this->api4GetFirst((string) $definition['entity'], [[$identityField, '=', $identity]], ['*']);
+    }
+    try {
+      $result = civicrm_api3((string) $definition['entity'], 'get', ['sequential' => 1, $identityField => $identity, 'options' => ['limit' => 1]]);
+      $values = array_values((array) ($result['values'] ?? []));
+      return $values[0] ?? NULL;
+    }
+    catch (\Throwable $e) {
+      return NULL;
+    }
+  }
+
+  private function createEntityRow(array $definition, array $values): array {
+    if ($definition['api'] === 'api4') {
+      return $this->api4Create((string) $definition['entity'], $values);
+    }
+    $result = civicrm_api3((string) $definition['entity'], 'create', $values + ['sequential' => 1]);
+    $values = array_values((array) ($result['values'] ?? []));
+    return $values[0] ?? [];
+  }
+
+  private function updateEntityRow(array $definition, array $existing, array $values): array {
+    if ($definition['api'] === 'api4') {
+      return $this->api4Update((string) $definition['entity'], [['id', '=', (int) $existing['id']]], $values);
+    }
+    if (empty($existing['id'])) {
+      throw new \RuntimeException('Existing APIv3 row has no id, so it cannot be updated safely.');
+    }
+    $values['id'] = (int) $existing['id'];
+    $result = civicrm_api3((string) $definition['entity'], 'create', $values + ['sequential' => 1]);
+    $rows = array_values((array) ($result['values'] ?? []));
+    return $rows[0] ?? [];
+  }
+
+  private function deleteEntityRow(array $definition, int $id): void {
+    if ($definition['api'] === 'api4') {
+      $this->api4Delete((string) $definition['entity'], [['id', '=', $id]]);
+      return;
+    }
+    civicrm_api3((string) $definition['entity'], 'delete', ['id' => $id]);
+  }
+
+  private function dependenciesForEntityRow(array $row, array $definition): array {
+    $dependencies = [[
+      'type' => 'extensions',
+      'entity' => 'Extension',
+      'name' => (string) $definition['extension'],
+      'reason' => 'This bundled configuration is provided by this extension API entity.',
+    ]];
+    $json = json_encode($row);
+    if ($json) {
+      preg_match_all('/afsearch[A-Za-z0-9_:-]+/', $json, $matches);
+      foreach (array_values(array_unique($matches[0] ?? [])) as $name) {
+        $dependencies[] = [
+          'type' => 'searchkit-displays',
+          'entity' => 'SearchDisplay',
+          'name' => $name,
+          'reason' => 'Extension configuration references this SearchKit display.',
+        ];
+      }
+    }
+    return $this->uniqueDependencies($dependencies);
+  }
+
+  private function discoverSettingMetadata(): array {
+    $settings = [];
+    if (!function_exists('civicrm_api3')) {
+      return $settings;
+    }
+    try {
+      $result = civicrm_api3('Setting', 'getfields', ['sequential' => 1]);
+      foreach ((array) ($result['values'] ?? []) as $key => $meta) {
+        $meta = (array) $meta;
+        $name = (string) ($meta['name'] ?? (is_string($key) ? $key : ''));
+        if ($name !== '') {
+          $settings[$name] = $meta;
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      // Optional setting discovery.
+    }
+    ksort($settings, SORT_NATURAL | SORT_FLAG_CASE);
+    return $settings;
+  }
+
+  private function extensionKeyForSetting(string $name, array $meta): string {
+    $installed = $this->installedExtensionKeys();
+    foreach (['extension', 'extension_key', 'component', 'module', 'group', 'group_name'] as $field) {
+      $candidate = (string) ($meta[$field] ?? '');
+      if ($candidate !== '' && isset($installed[$candidate])) {
+        return $candidate;
+      }
+    }
+    foreach (array_keys($installed) as $extensionKey) {
+      if ($this->settingNameLooksRelatedToExtension($name, $extensionKey)) {
+        return $extensionKey;
+      }
+    }
+    return '';
+  }
+
+  private function settingNameLooksRelatedToExtension(string $settingName, string $extensionKey): bool {
+    $setting = strtolower($settingName);
+    foreach ($this->extensionTokens($extensionKey) as $token) {
+      if (preg_match('/^' . preg_quote($token, '/') . '([_.:-]|$)/', $setting)) {
+        return TRUE;
+      }
+      if (preg_match('/(^|[_.:-])' . preg_quote($token, '/') . '([_.:-]|$)/', $setting)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  private function extensionTokens(string $extensionKey): array {
+    $parts = preg_split('/[^A-Za-z0-9]+/', strtolower($extensionKey));
+    $tokens = [];
+    foreach ((array) $parts as $part) {
+      if (strlen($part) >= 4 && !in_array($part, ['civi', 'civicrm', 'org', 'com', 'net', 'co', 'uk', 'info', 'extension'], TRUE)) {
+        $tokens[] = $part;
+      }
+    }
+    $last = end($parts);
+    if (is_string($last) && strlen($last) >= 3) {
+      $tokens[] = $last;
+    }
+    $compact = preg_replace('/[^A-Za-z0-9]+/', '', strtolower($extensionKey));
+    if ($compact !== '') {
+      $tokens[] = $compact;
+    }
+    return array_values(array_unique($tokens));
+  }
+
+  private function installedExtensionKeys(): array {
+    $keys = [];
+    try {
+      $statuses = (array) \CRM_Extension_System::singleton()->getManager()->getStatuses();
+      foreach ($statuses as $key => $status) {
+        if (in_array(strtolower((string) $status), ['installed', 'enabled', 'disabled'], TRUE)) {
+          $keys[(string) $key] = TRUE;
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      // Leave empty.
+    }
+    return $keys;
+  }
+
+  private function isGenericConfigSkippedExtension(string $extensionKey): bool {
+    if ($extensionKey === Version::EXTENSION_KEY) {
+      return TRUE;
+    }
+    if (preg_match('/^civi_/i', $extensionKey)) {
+      return TRUE;
+    }
+    return in_array($extensionKey, [
+      'org.civicrm.afform',
+      'org.civicrm.api4',
+      'org.civicrm.search_kit',
+      'org.civicrm.flexmailer',
+    ], TRUE);
+  }
+
+  private function isSafeSettingName(string $name): bool {
+    return (bool) preg_match('/^[A-Za-z0-9_.:-]+$/', $name);
+  }
+
+  private function isSensitiveSettingName(string $name): bool {
+    return (bool) preg_match('/(password|passwd|secret|credential|private|token|api[_-]?key|key)$/i', $name);
+  }
+
+  private function definitionKey(string $extension, string $api, string $entity): string {
+    return strtolower($extension . '|' . $api . '|' . $entity);
+  }
+
+  private function identityKey(string $field, string $value): string {
+    return $field . ':' . $value;
+  }
+
+  private function uniqueDependencies(array $dependencies): array {
+    $seen = [];
+    $unique = [];
+    foreach ($dependencies as $dependency) {
+      $key = json_encode($dependency);
+      if (isset($seen[$key])) {
+        continue;
+      }
+      $seen[$key] = TRUE;
+      $unique[] = $dependency;
+    }
+    return $unique;
+  }
+
+  private function formatEntityImportException(\Throwable $e, array $definition, string $identity): string {
+    $message = $e->getMessage();
+    if (stripos($message, 'already exists') !== FALSE || stripos($message, 'duplicate') !== FALSE) {
+      return sprintf('Target already has a conflicting bundled extension config record for %s %s / %s. Import skipped this item to avoid creating a duplicate. Original error: %s', $definition['api'], $definition['entity'], $identity, $message);
+    }
+    return $message;
   }
 
   private function callManager($manager, string $method, array $keys): void {
