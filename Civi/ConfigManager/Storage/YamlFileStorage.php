@@ -69,6 +69,16 @@ class YamlFileStorage {
     return $path;
   }
 
+
+  public function readFile(string $relativePath): array {
+    $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
+    $path = $this->root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+    if (!is_file($path)) {
+      return [];
+    }
+    return SimpleYaml::parseFile($path);
+  }
+
   public function readDirectory(string $directory): array {
     $path = $this->root . DIRECTORY_SEPARATOR . trim($directory, DIRECTORY_SEPARATOR);
     if (!is_dir($path)) {

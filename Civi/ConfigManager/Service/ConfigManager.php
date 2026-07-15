@@ -285,6 +285,7 @@ class ConfigManager {
             $summary['skipped'][] = $relative . ' (ignored)';
             continue;
           }
+          $file['data'] = $this->applyIgnoredValueRules($relative, (array) ($file['data'] ?? []));
           $isSame = $storage->isSame($handler->getDirectory(), $file['filename'], $file['data']);
           if ($dryRun) {
             if (!$isSame) {
@@ -330,7 +331,9 @@ class ConfigManager {
       }
       try {
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
-        $item = $this->filterIgnoredDiffItem($handler->diff($files), $handler->getDirectory());
+        $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
+        $exported = $this->filterIgnoredValuesInExportFiles($handler->getDirectory(), $handler->export());
+        $item = $this->filterIgnoredDiffItem($handler->diffFromExports($exported, $files), $handler->getDirectory());
         if (($item['status'] ?? '') !== 'in_sync' || !empty($item['files'])) {
           $result['items'][] = $item;
         }
@@ -353,6 +356,7 @@ class ConfigManager {
       }
       try {
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+        $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
         $yamlByType[$handler->getType()] = $files;
         $validation = $handler->validate($files);
         $result['items'][] = $validation;
@@ -365,6 +369,7 @@ class ConfigManager {
       }
     }
     $this->addDependencyWarnings($result, $yamlByType);
+    $this->addManifestValidation($result, $storage->readFile('manifest.yml'));
     $result['ok'] = $result['ok'] && empty($result['errors']);
     return $result;
   }
@@ -541,6 +546,7 @@ class ConfigManager {
       foreach ($handlers as $handler) {
         $this->setHandlerImportPhase($handler, TRUE, FALSE);
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+        $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
         $item = $handler->import($files, FALSE);
         $item['phase'] = 'create_update';
         $result['items'][] = $item;
@@ -551,6 +557,7 @@ class ConfigManager {
       foreach (array_reverse($handlers) as $handler) {
         $this->setHandlerImportPhase($handler, FALSE, TRUE);
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+        $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
         $item = $handler->import($files, FALSE);
         $item['phase'] = 'delete_missing';
         $result['items'][] = $item;
@@ -566,6 +573,7 @@ class ConfigManager {
     foreach ($handlers as $handler) {
       $this->setHandlerImportPhase($handler, TRUE, TRUE);
       $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+      $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
       $item = $handler->import($files, $dryRun || !$yes);
       $result['items'][] = $item;
       if (!empty($item['errors'])) {
@@ -702,6 +710,132 @@ class ConfigManager {
   }
 
 
+  public function getIgnoreValuePatterns(): array {
+    $configured = (array) \Civi::settings()->get('civicfg_ignore_values');
+    $rules = [];
+    foreach ($configured as $rule) {
+      $rule = trim(str_replace('\\', '/', (string) $rule));
+      if ($rule === '' || strpos($rule, ':') === FALSE) {
+        continue;
+      }
+      [$path, $valuePath] = array_map('trim', explode(':', $rule, 2));
+      $path = trim($path, '/');
+      $valuePath = trim($valuePath);
+      if ($path === '' || $valuePath === '') {
+        continue;
+      }
+      $rules[] = ['path' => $path, 'value_path' => $valuePath, 'raw' => $path . ':' . $valuePath];
+    }
+    return $rules;
+  }
+
+  private function filterIgnoredValuesInFiles(string $directory, array $files): array {
+    $filtered = [];
+    foreach ($files as $filename => $data) {
+      $relative = trim($directory, '/') . '/' . ltrim((string) $filename, '/');
+      $filtered[$filename] = $this->applyIgnoredValueRules($relative, (array) $data);
+    }
+    return $filtered;
+  }
+
+  private function filterIgnoredValuesInExportFiles(string $directory, array $files): array {
+    foreach ($files as &$file) {
+      if (empty($file['filename'])) {
+        continue;
+      }
+      $relative = trim($directory, '/') . '/' . ltrim((string) $file['filename'], '/');
+      $file['data'] = $this->applyIgnoredValueRules($relative, (array) ($file['data'] ?? []));
+    }
+    return $files;
+  }
+
+  public function applyIgnoredValueRules(string $relativePath, array $data): array {
+    foreach ($this->getIgnoreValuePatterns() as $rule) {
+      if (!$this->pathMatchesPattern($relativePath, (string) $rule['path'])) {
+        continue;
+      }
+      $data = $this->removeValuePath($data, (string) $rule['value_path']);
+    }
+    return $data;
+  }
+
+  private function removeValuePath(array $data, string $path): array {
+    $segments = $this->splitValuePath($path);
+    if (!$segments) {
+      return $data;
+    }
+    $this->unsetValuePath($data, $segments);
+    return $data;
+  }
+
+  private function unsetValuePath(array &$data, array $segments): void {
+    $segment = array_shift($segments);
+    if ($segment === NULL) {
+      return;
+    }
+    if ($segment === '*') {
+      foreach ($data as &$child) {
+        if (is_array($child)) {
+          if ($segments) {
+            $this->unsetValuePath($child, $segments);
+          }
+          else {
+            $child = NULL;
+          }
+        }
+      }
+      unset($child);
+      return;
+    }
+    if (!array_key_exists($segment, $data)) {
+      return;
+    }
+    if (!$segments) {
+      unset($data[$segment]);
+      return;
+    }
+    if (is_array($data[$segment])) {
+      $this->unsetValuePath($data[$segment], $segments);
+    }
+  }
+
+  private function splitValuePath(string $path): array {
+    $path = trim($path);
+    if ($path === '') {
+      return [];
+    }
+    $path = preg_replace('/\[([^\]]+)\]/', '.$1', $path);
+    $parts = preg_split('/\.+/', (string) $path);
+    return array_values(array_filter(array_map('trim', (array) $parts), static fn($part) => $part !== ''));
+  }
+
+  private function pathMatchesPattern(string $relativePath, string $pattern): bool {
+    $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
+    $pattern = trim(str_replace('\\', '/', $pattern), '/');
+    if ($relativePath === $pattern) {
+      return TRUE;
+    }
+    $regex = '/^' . str_replace('\\*', '.*', preg_quote($pattern, '/')) . '$/';
+    return (bool) preg_match($regex, $relativePath);
+  }
+
+  private function addManifestValidation(array &$result, array $manifest): void {
+    if (!$manifest) {
+      return;
+    }
+    $manifestSite = trim((string) ($manifest['site_id'] ?? ''));
+    $localSite = trim((string) \Civi::settings()->get('civicfg_site_id'));
+    $allowCrossSite = (bool) \Civi::settings()->get('civicfg_allow_cross_site_import');
+    if ($manifestSite !== '' && $localSite !== '' && $manifestSite !== $localSite && !$allowCrossSite) {
+      $result['ok'] = FALSE;
+      $result['errors'][] = [
+        'type' => 'manifest',
+        'message' => sprintf('Manifest site_id "%s" does not match this site_id "%s". Use the same Configuration Manager Site Identifier across dev/stage/prod for the same site, or explicitly allow cross-site import for a reviewed one-off migration.', $manifestSite, $localSite),
+      ];
+    }
+  }
+
+
   public function getIgnoredDependencyWarnings(): array {
     $storage = new YamlFileStorage($this->getSyncDir());
     $warnings = [];
@@ -812,7 +946,8 @@ class ConfigManager {
   }
 
   private function getManifestData(): array {
-    return [
+    $siteId = trim((string) \Civi::settings()->get('civicfg_site_id'));
+    $manifest = [
       'schema_version' => 1,
       'extension' => Version::EXTENSION_KEY,
       'format' => 'yaml',
@@ -820,5 +955,10 @@ class ConfigManager {
       'civicrm_min_version' => '5.0',
       'created_by' => 'Configuration Manager',
     ];
+    if ($siteId !== '') {
+      $manifest['site_id'] = $siteId;
+      $manifest['site_policy'] = 'same-site-environments';
+    }
+    return $manifest;
   }
 }

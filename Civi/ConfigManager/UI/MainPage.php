@@ -255,6 +255,13 @@ class MainPage {
       \Civi::settings()->set('civicfg_sync_dir', $syncDir);
     }
 
+    $siteId = trim((string) ($_POST['site_id'] ?? ''));
+    if ($siteId !== '' && !preg_match('/^[A-Za-z0-9_.:-]+$/', $siteId)) {
+      throw new RuntimeException('Site Identifier may only contain letters, numbers, dots, underscores, hyphens, and colons.');
+    }
+    \Civi::settings()->set('civicfg_site_id', $siteId);
+    \Civi::settings()->set('civicfg_allow_cross_site_import', !empty($_POST['allow_cross_site_import']) ? 1 : 0);
+
     $enabled = $_POST['enabled_types'] ?? [];
     if (!is_array($enabled)) {
       $enabled = [];
@@ -277,6 +284,13 @@ class MainPage {
       return trim(str_replace('\\', '/', (string) $value), '/');
     }, $ignorePaths))));
     \Civi::settings()->set('civicfg_ignore_paths', $ignorePaths);
+
+    $ignoreValuesRaw = (string) ($_POST['ignore_values'] ?? '');
+    $ignoreValues = preg_split('/[\r\n,]+/', $ignoreValuesRaw);
+    $ignoreValues = array_values(array_unique(array_filter(array_map(function($value) {
+      return trim(str_replace('\\', '/', (string) $value));
+    }, $ignoreValues))));
+    \Civi::settings()->set('civicfg_ignore_values', $ignoreValues);
   }
 
 
@@ -303,6 +317,9 @@ class MainPage {
     $enabledTypes = (array) \Civi::settings()->get('civicfg_enabled_types');
     $settingsAllowlist = (array) \Civi::settings()->get('civicfg_settings_allowlist');
     $ignorePaths = $this->manager->getIgnorePatterns();
+    $ignoreValues = $this->manager->getIgnoreValuePatterns();
+    $siteId = trim((string) \Civi::settings()->get('civicfg_site_id'));
+    $allowCrossSiteImport = (bool) \Civi::settings()->get('civicfg_allow_cross_site_import');
     $diffFiles = $this->presenter->extractDiffFiles($diffResult);
     $importPlan = $this->presenter->buildImportPlan($diffFiles);
     $importApplyTypes = $this->presenter->getImportApplyTypes($importPlan);
@@ -390,6 +407,9 @@ class MainPage {
     $this->page->assign('enabledTypesMap', $enabledTypesMap);
     $this->page->assign('settingsAllowlist', implode("\n", $settingsAllowlist));
     $this->page->assign('ignorePaths', implode("\n", $ignorePaths));
+    $this->page->assign('ignoreValues', implode("\n", array_map(fn($rule) => (string) ($rule['raw'] ?? ''), $ignoreValues)));
+    $this->page->assign('siteId', $siteId);
+    $this->page->assign('allowCrossSiteImport', $allowCrossSiteImport);
     $codeDefinedSyncDir = $this->getCodeDefinedSyncDir();
     $savedSyncDir = trim((string) \Civi::settings()->get('civicfg_sync_dir'));
     if ($savedSyncDir === '' || $savedSyncDir === '../civicrm-config') {

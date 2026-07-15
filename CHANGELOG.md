@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha42-core
+
+- Added an optional Configuration Manager Site Identifier. Export writes it to `manifest.yml`; validation blocks imports from a different site when both source and target identifiers are set unless cross-site import is explicitly allowed.
+- Added field-level Config Ignore rules using `path/to/file.yml:dot.path`, so environment-specific values can be ignored without excluding the whole YAML file.
+- Split generic contributed/custom extension API config into separate `extensions/<extension>/<api>/<entity>/<item>.yml` files, while keeping extension status/settings in `extensions/<extension>.yml`. This keeps large items such as Mosaico templates readable and maintainable.
+- Added a generic packaged-asset heuristic to avoid exporting extension-provided base assets as site configuration when they are safely recreated by the extension itself.
+- Preferred API4 over APIv3 when the same extension exposes the same entity through both APIs, avoiding duplicate YAML for the same record.
+- Downgraded generic extension-config duplicate/already-exists import conflicts to warnings/skips where possible instead of treating them as hard failures.
+
 ## 0.1.0-alpha41-core
 
 - Removed separate Extension Entity Config and Extension-specific Settings managed types to avoid producing hundreds of duplicate YAML files.

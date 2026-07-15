@@ -226,6 +226,12 @@ class Presenter {
     if (!$importResult) {
       return '';
     }
+    if (!empty($importResult['validation']['errors'])) {
+      foreach ($importResult['validation']['errors'] as $error) {
+        $type = !empty($error['type']) ? ((string) $error['type'] . ': ') : '';
+        return $type . (string) ($error['message'] ?? json_encode($error));
+      }
+    }
     if (!empty($importResult['validation']['items'])) {
       foreach ($importResult['validation']['items'] as $item) {
         foreach (($item['errors'] ?? []) as $error) {
@@ -254,6 +260,15 @@ class Presenter {
         'title' => ts('Import'),
         'message' => (string) $importResult['error'],
       ];
+    }
+    if (!empty($importResult['validation']['errors']) && is_array($importResult['validation']['errors'])) {
+      foreach ($importResult['validation']['errors'] as $error) {
+        $messages[] = [
+          'type' => 'error',
+          'title' => !empty($error['type']) ? $this->humanizeType((string) $error['type']) : ts('Validation'),
+          'message' => (string) ($error['message'] ?? json_encode($error)),
+        ];
+      }
     }
     if (!empty($importResult['validation']['items']) && is_array($importResult['validation']['items'])) {
       foreach ($importResult['validation']['items'] as $item) {

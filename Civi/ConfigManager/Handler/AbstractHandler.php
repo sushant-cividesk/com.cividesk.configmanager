@@ -21,7 +21,10 @@ abstract class AbstractHandler implements HandlerInterface {
   }
 
   public function diff(array $items): array {
-    $exported = $this->export();
+    return $this->diffFromExports($this->export(), $items);
+  }
+
+  public function diffFromExports(array $exported, array $items): array {
     $dbItems = [];
     foreach ($exported as $file) {
       if (!empty($file['filename'])) {

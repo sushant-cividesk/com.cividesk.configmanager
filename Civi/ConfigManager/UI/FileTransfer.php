@@ -64,7 +64,8 @@ class FileTransfer {
           if ($manager->shouldIgnorePath($relativePath)) {
             throw new RuntimeException('Selected export item is ignored by Config Ignore: ' . $relativePath);
           }
-          $yaml = SimpleYaml::dump($file['data'] ?? []);
+          $data = $manager->applyIgnoredValueRules($relativePath, (array) ($file['data'] ?? []));
+          $yaml = SimpleYaml::dump($data);
           return [
             'key' => $key,
             'type' => $type,
@@ -229,7 +230,19 @@ class FileTransfer {
         if ($manager->shouldIgnorePath($relative)) {
           continue;
         }
-        $zip->addFile($file->getPathname(), $relative);
+        if (preg_match('/\.ya?ml$/i', $relative)) {
+          try {
+            $parsed = SimpleYaml::parseFile($file->getPathname());
+            $parsed = $manager->applyIgnoredValueRules($relative, (array) $parsed);
+            $zip->addFromString($relative, SimpleYaml::dump($parsed));
+          }
+          catch (Throwable $e) {
+            $zip->addFile($file->getPathname(), $relative);
+          }
+        }
+        else {
+          $zip->addFile($file->getPathname(), $relative);
+        }
       }
     }
     $zip->close();

@@ -26,7 +26,7 @@ class ExtensionHandler extends AbstractHandler {
   public function export(): array {
     $manager = \CRM_Extension_System::singleton()->getManager();
     $settingsByExtension = $this->discoverSettingsByExtension();
-    $configByExtension = $this->discoverConfigByExtension();
+    $configExport = $this->discoverSplitConfigByExtension();
 
     $files = [];
     foreach ($manager->getStatuses() as $key => $status) {
@@ -44,14 +44,17 @@ class ExtensionHandler extends AbstractHandler {
       if (!empty($settingsByExtension[$key])) {
         $data['settings'] = $settingsByExtension[$key];
       }
-      if (!empty($configByExtension[$key])) {
-        $data['config'] = $configByExtension[$key];
+      if (!empty($configExport['index'][$key])) {
+        $data['config_index'] = $configExport['index'][$key];
       }
 
       $files[] = [
         'filename' => $this->safeName($key) . '.yml',
         'data' => $data,
       ];
+    }
+    foreach (($configExport['files'] ?? []) as $file) {
+      $files[] = $file;
     }
     usort($files, fn($a, $b) => strcmp($a['filename'], $b['filename']));
     return $files;
@@ -72,8 +75,12 @@ class ExtensionHandler extends AbstractHandler {
         }
         continue;
       }
+      if ($type === 'extension_config.item') {
+        $this->validateExtensionConfigItem($filename, $item, $definitions, $errors);
+        continue;
+      }
       if ($type !== 'extension.item') {
-        $errors[] = ['file' => $filename, 'message' => 'Invalid type. Expected extension.item.'];
+        $errors[] = ['file' => $filename, 'message' => 'Invalid type. Expected extension.item or extension_config.item.'];
         continue;
       }
 
@@ -150,6 +157,13 @@ class ExtensionHandler extends AbstractHandler {
     $definitions = $this->entityDefinitionsByKey();
     $desiredConfigKeys = [];
 
+    foreach ($this->expandConfigIndexes($items) as $index) {
+      $definitionKey = $this->definitionKey($index['extension'], $index['api'], $index['entity']);
+      if (isset($definitions[$definitionKey])) {
+        $desiredConfigKeys[$definitionKey] = $desiredConfigKeys[$definitionKey] ?? [];
+      }
+    }
+
     foreach ($this->expandItems($items, $summary) as $entry) {
       $filename = $entry['filename'];
       $extension = (array) $entry['extension'];
@@ -168,32 +182,12 @@ class ExtensionHandler extends AbstractHandler {
       }
 
       foreach ($this->flattenBundledConfig($fullItem['config'] ?? []) as $configEntry) {
-        $definitionKey = $this->definitionKey($key, $configEntry['api'], $configEntry['entity']);
-        if (!isset($definitions[$definitionKey])) {
-          $summary['errors'][] = [
-            'file' => $filename,
-            'message' => sprintf('Bundled extension config provider is not available: extension %s, %s entity %s.', $key, $configEntry['api'], $configEntry['entity']),
-          ];
-          continue;
-        }
-        $definition = $definitions[$definitionKey];
-        $configItem = (array) $configEntry['item'];
-        $row = (array) ($configItem['item'] ?? []);
-        $identityField = (string) ($configItem['identity_field'] ?? '');
-        if ($identityField === '' || empty($row[$identityField])) {
-          $identityField = (string) ($this->identityField($row) ?? '');
-        }
-        if ($identityField === '') {
-          $summary['errors'][] = ['file' => $filename, 'message' => sprintf('Bundled extension config for %s %s is missing a stable identity field.', $configEntry['api'], $configEntry['entity'])];
-          continue;
-        }
-        $identity = (string) $row[$identityField];
-        $desiredConfigKeys[$definitionKey][$this->identityKey($identityField, $identity)] = TRUE;
-
-        if ($this->importWritesEnabled) {
-          $this->applyBundledConfigItem($filename, $definition, $row, $identityField, $identity, $dryRun, $summary);
-        }
+        $this->processExtensionConfigEntry($filename, $key, $configEntry, $definitions, $desiredConfigKeys, $dryRun, $summary);
       }
+    }
+
+    foreach ($this->expandExtensionConfigItems($items, $summary) as $configEntry) {
+      $this->processExtensionConfigEntry($configEntry['filename'], $configEntry['extension'], $configEntry, $definitions, $desiredConfigKeys, $dryRun, $summary);
     }
 
     if ($this->deleteMissingEnabled) {
@@ -326,7 +320,14 @@ class ExtensionHandler extends AbstractHandler {
       }
     }
     catch (\Throwable $e) {
-      $summary['errors'][] = ['file' => $filename, 'name' => $identity, 'message' => $this->formatEntityImportException($e, $definition, $identity)];
+      $message = $this->formatEntityImportException($e, $definition, $identity);
+      if ($this->isEntityConflictException($e)) {
+        $summary['config']['skip']++;
+        $summary['warnings'][] = ['file' => $filename, 'name' => $identity, 'message' => $message];
+      }
+      else {
+        $summary['errors'][] = ['file' => $filename, 'name' => $identity, 'message' => $message];
+      }
     }
   }
 
@@ -376,12 +377,121 @@ class ExtensionHandler extends AbstractHandler {
         }
         $rows[] = ['filename' => $filename, 'extension' => $extension, 'item' => (array) $item];
       }
-      else {
-        $summary['errors'][] = ['file' => $filename, 'message' => 'Invalid extension YAML type. Expected extension.item.'];
+      elseif ($type !== 'extension_config.item') {
+        $summary['errors'][] = ['file' => $filename, 'message' => 'Invalid extension YAML type. Expected extension.item or extension_config.item.'];
       }
     }
     return $rows;
   }
+
+  private function validateExtensionConfigItem(string $filename, array $item, array $definitions, array &$errors): void {
+    $extensionKey = (string) ($item['extension'] ?? '');
+    $api = (string) ($item['api'] ?? '');
+    $entity = (string) ($item['entity'] ?? '');
+    if ($extensionKey === '' || $api === '' || $entity === '') {
+      $errors[] = ['file' => $filename, 'message' => 'Extension config item is missing extension, api, or entity.'];
+      return;
+    }
+    $definitionKey = $this->definitionKey($extensionKey, $api, $entity);
+    if (!isset($definitions[$definitionKey])) {
+      $errors[] = [
+        'file' => $filename,
+        'message' => sprintf('Extension config provider is not available: extension %s, %s entity %s. Install/enable that extension before import.', $extensionKey, $api, $entity),
+      ];
+      return;
+    }
+    $row = (array) ($item['item'] ?? []);
+    $identityField = (string) ($item['identity_field'] ?? '');
+    if ($identityField === '' || empty($row[$identityField])) {
+      $identityField = (string) ($this->identityField($row) ?? '');
+    }
+    if ($identityField === '') {
+      $errors[] = ['file' => $filename, 'message' => sprintf('Extension config item for %s %s is missing a stable identity field.', $api, $entity)];
+    }
+  }
+
+  private function processExtensionConfigEntry(string $filename, string $extensionKey, array $configEntry, array $definitions, array &$desiredConfigKeys, bool $dryRun, array &$summary): void {
+    $api = (string) ($configEntry['api'] ?? '');
+    $entity = (string) ($configEntry['entity'] ?? '');
+    $definitionKey = $this->definitionKey($extensionKey, $api, $entity);
+    if (!isset($definitions[$definitionKey])) {
+      $summary['errors'][] = [
+        'file' => $filename,
+        'message' => sprintf('Extension config provider is not available: extension %s, %s entity %s.', $extensionKey, $api, $entity),
+      ];
+      return;
+    }
+    $definition = $definitions[$definitionKey];
+    $configItem = (array) ($configEntry['item'] ?? []);
+    $row = (array) ($configItem['item'] ?? $configItem);
+    $identityField = (string) ($configItem['identity_field'] ?? ($configEntry['identity_field'] ?? ''));
+    if ($identityField === '' || empty($row[$identityField])) {
+      $identityField = (string) ($this->identityField($row) ?? '');
+    }
+    if ($identityField === '') {
+      $summary['errors'][] = ['file' => $filename, 'message' => sprintf('Extension config for %s %s is missing a stable identity field.', $api, $entity)];
+      return;
+    }
+    $identity = (string) $row[$identityField];
+    $desiredConfigKeys[$definitionKey][$this->identityKey($identityField, $identity)] = TRUE;
+
+    if ($this->importWritesEnabled) {
+      $this->applyBundledConfigItem($filename, $definition, $row, $identityField, $identity, $dryRun, $summary);
+    }
+  }
+
+  private function expandConfigIndexes(array $items): array {
+    $indexes = [];
+    foreach ($items as $item) {
+      if (($item['type'] ?? '') !== 'extension.item') {
+        continue;
+      }
+      $extension = (array) ($item['extension'] ?? []);
+      $extensionKey = (string) ($extension['key'] ?? ($item['key'] ?? ''));
+      if ($extensionKey === '') {
+        continue;
+      }
+      foreach ((array) ($item['config_index'] ?? []) as $row) {
+        $row = (array) $row;
+        if (!empty($row['api']) && !empty($row['entity'])) {
+          $indexes[] = [
+            'extension' => $extensionKey,
+            'api' => (string) $row['api'],
+            'entity' => (string) $row['entity'],
+          ];
+        }
+      }
+    }
+    return $indexes;
+  }
+
+  private function expandExtensionConfigItems(array $items, array &$summary): array {
+    $rows = [];
+    foreach ($items as $filename => $item) {
+      if (($item['type'] ?? '') !== 'extension_config.item') {
+        continue;
+      }
+      $extensionKey = (string) ($item['extension'] ?? '');
+      if ($extensionKey === '') {
+        $summary['errors'][] = ['file' => $filename, 'message' => 'Extension config item is missing extension.'];
+        continue;
+      }
+      $rows[] = [
+        'filename' => (string) $filename,
+        'extension' => $extensionKey,
+        'api' => (string) ($item['api'] ?? ''),
+        'entity' => (string) ($item['entity'] ?? ''),
+        'item' => [
+          'name' => $item['name'] ?? NULL,
+          'identity_field' => $item['identity_field'] ?? NULL,
+          'dependencies' => $item['dependencies'] ?? [],
+          'item' => (array) ($item['item'] ?? []),
+        ],
+      ];
+    }
+    return $rows;
+  }
+
 
   private function dependenciesForExtension(string $key): array {
     return [];
@@ -406,6 +516,94 @@ class ExtensionHandler extends AbstractHandler {
     ksort($groups, SORT_NATURAL | SORT_FLAG_CASE);
     return $groups;
   }
+
+  private function discoverSplitConfigByExtension(): array {
+    $files = [];
+    $index = [];
+    foreach ($this->discoverEntityDefinitions() as $definition) {
+      $extensionKey = (string) $definition['extension'];
+      if ($this->isGenericConfigSkippedExtension($extensionKey)) {
+        continue;
+      }
+      $usedNames = [];
+      foreach ($this->fetchEntityRows($definition) as $row) {
+        $row = $this->cleanEntityRowForExport((array) $row, $definition);
+        if ($this->isPackagedExtensionAssetRow($row, $definition)) {
+          continue;
+        }
+        $identityField = $this->identityField($row);
+        if ($identityField === NULL) {
+          continue;
+        }
+        $identity = (string) $row[$identityField];
+        $safeExtension = $this->safeName($extensionKey);
+        $filename = $safeExtension . '/' . $this->safeName((string) $definition['api']) . '/' . $this->safeName((string) $definition['entity']) . '/' . $this->uniqueConfigFileName($identity, $usedNames) . '.yml';
+        $dependencies = $this->dependenciesForEntityRow($row, $definition);
+        $files[] = [
+          'filename' => $filename,
+          'data' => [
+            'schema_version' => 1,
+            'type' => 'extension_config.item',
+            'extension' => $extensionKey,
+            'api' => (string) $definition['api'],
+            'entity' => (string) $definition['entity'],
+            'name' => $identity,
+            'identity_field' => $identityField,
+            'dependencies' => $dependencies,
+            'item' => $row,
+          ],
+        ];
+      }
+      if (!empty($usedNames)) {
+        $index[$extensionKey][] = [
+          'api' => (string) $definition['api'],
+          'entity' => (string) $definition['entity'],
+          'directory' => $this->safeName($extensionKey) . '/' . $this->safeName((string) $definition['api']) . '/' . $this->safeName((string) $definition['entity']),
+          'count' => count($usedNames),
+        ];
+      }
+    }
+    foreach ($index as &$rows) {
+      usort($rows, fn($a, $b) => strcmp($a['api'] . ':' . $a['entity'], $b['api'] . ':' . $b['entity']));
+    }
+    unset($rows);
+    ksort($index, SORT_NATURAL | SORT_FLAG_CASE);
+    usort($files, fn($a, $b) => strcmp((string) $a['filename'], (string) $b['filename']));
+    return ['files' => $files, 'index' => $index];
+  }
+
+  private function uniqueConfigFileName(string $identity, array &$used): string {
+    $base = $this->safeName($identity);
+    $candidate = $base;
+    $i = 2;
+    while (isset($used[$candidate])) {
+      $candidate = $base . '-' . $i;
+      $i++;
+    }
+    $used[$candidate] = TRUE;
+    return $candidate;
+  }
+
+  private function isPackagedExtensionAssetRow(array $row, array $definition): bool {
+    $extensionKey = (string) ($definition['extension'] ?? '');
+    $json = json_encode($row);
+    if (!$json || $extensionKey === '') {
+      return FALSE;
+    }
+    $hasPackagedPath = stripos($json, '/ext/' . $extensionKey . '/') !== FALSE
+      || stripos($json, '/ext/' . str_replace('.', '/', $extensionKey) . '/') !== FALSE
+      || (stripos($json, $extensionKey) !== FALSE && preg_match('/\/(packages|templates|resources|assets)\//i', $json));
+    if (!$hasPackagedPath) {
+      return FALSE;
+    }
+    foreach (['content', 'html', 'body', 'template', 'msg_html', 'msg_text'] as $field) {
+      if (!empty($row[$field]) && is_string($row[$field]) && strlen($row[$field]) > 200) {
+        return FALSE;
+      }
+    }
+    return TRUE;
+  }
+
 
   private function discoverConfigByExtension(): array {
     $groups = [];
@@ -465,10 +663,15 @@ class ExtensionHandler extends AbstractHandler {
       if ($this->isGenericConfigSkippedExtension($extensionKey)) {
         continue;
       }
+      $api4EntityNames = [];
       foreach ($this->discoverApi4Entities($extensionKey, $basePath) as $definition) {
+        $api4EntityNames[strtolower((string) $definition['entity'])] = TRUE;
         $definitions[$this->definitionKey($definition['extension'], $definition['api'], $definition['entity'])] = $definition;
       }
       foreach ($this->discoverApi3Entities($extensionKey, $basePath) as $definition) {
+        if (isset($api4EntityNames[strtolower((string) $definition['entity'])])) {
+          continue;
+        }
         $definitions[$this->definitionKey($definition['extension'], $definition['api'], $definition['entity'])] = $definition;
       }
     }
@@ -872,6 +1075,11 @@ class ExtensionHandler extends AbstractHandler {
       $unique[] = $dependency;
     }
     return $unique;
+  }
+
+  private function isEntityConflictException(\Throwable $e): bool {
+    $message = $e->getMessage();
+    return stripos($message, 'already exists') !== FALSE || stripos($message, 'duplicate') !== FALSE;
   }
 
   private function formatEntityImportException(\Throwable $e, array $definition, string $identity): string {
