@@ -92,7 +92,15 @@ Option group value validation allows CiviCRM core data where option value names 
 
 Run these tests on sites where contributed/custom extensions are installed and enabled:
 
-- Generic extension entities: create or edit a non-critical extension-provided API4/APIv3 config record, export, diff, import dry-run, import apply, and confirm it is restored without relying on local numeric IDs. Exported files should appear under `extensions/<extension-key>.yml under config`.
-- Extension settings: confirm non-secret settings that can be attributed to an installed extension export to `extension-settings/<extension-key>.yml`; confirm sensitive names such as passwords, secrets, tokens, and API keys are blocked.
+- Generic extension entities: create or edit a non-critical extension-provided API4/APIv3 config record, export, diff, import dry-run, import apply, and confirm it is restored without relying on local numeric IDs. Extension status/settings should appear in `extensions/<extension-key>.yml`; larger extension-owned API records should appear as split files under `extensions/<extension-key>/<api>/<entity>/<item>.yml` and be referenced from the extension file by `config_index`.
+- Extension settings: confirm non-secret settings that can be attributed to an installed extension export inside `extensions/<extension-key>.yml`; confirm sensitive names such as passwords, secrets, tokens, and API keys are blocked.
 - Dependency clarity: remove a required YAML dependency and run Validate/Import. The message should identify the owning file, missing dependency type/name, and whether Config Ignore or an older numeric-ID export is likely involved.
 - Missing provider: disable/remove the provider extension on a disposable test build and confirm validation/import reports a clear missing-provider error instead of fataling.
+
+## Alpha43 lifecycle and dependency metadata tests
+
+- Site Identifier: install/enable the extension and confirm Settings shows a generated read-only Site Identifier. Export and confirm `manifest.yml` includes the same value. Clone the database to another environment and confirm the value remains the same.
+- Cross-site guard: change the manifest site_id in a disposable copy and confirm Validate blocks import unless Experimental Cross-site Import is enabled.
+- Reverse dependencies: export SearchKit/FormBuilder or custom-data dependencies and confirm dependency target files receive `required_by` metadata. Remove a dependent file in a disposable copy and confirm Validate reports stale reverse metadata as a warning.
+- Project CLI wrappers: after install/enable, confirm `<project-root>/bin/civicfg`, `ce`, `ci`, `cdf`, and `cval` exist when the project bin directory is writable, do not overwrite non-managed files, and warn if the extension is disabled.
+- UI buttons: smoke-test Synchronize, Import, Export, and Settings action buttons in RiverLea, Shoreditch, and the base CiviCRM theme.

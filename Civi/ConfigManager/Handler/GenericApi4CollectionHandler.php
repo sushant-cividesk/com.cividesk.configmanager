@@ -405,6 +405,10 @@ class GenericApi4CollectionHandler extends AbstractHandler {
 
 
   protected function normaliseDataForDiff(array $data): array {
+    unset($data['required_by']);
+    if (isset($data['item']) && is_array($data['item'])) {
+      unset($data['item']['required_by']);
+    }
     return $this->stripRuntimeFields($data);
   }
 

@@ -123,3 +123,45 @@
 .crm-configmanager-block table.form-layout-compressed {table-layout: auto;}
 .crm-configmanager-block details > summary {list-style-position: inside;}
 .crm-configmanager-block .messages.no-popup {box-sizing: border-box;}
+
+/* Alpha43 button normalization: keep action buttons consistent across CiviCRM core/custom themes. */
+.crm-configmanager-block button,
+.crm-configmanager-block button.button,
+.crm-configmanager-block input[type="submit"],
+.crm-configmanager-block input.crm-form-submit,
+.crm-configmanager-block a.button,
+.crm-configmanager-block .button {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: auto !important;
+  min-width: 0;
+  min-height: 2.15rem;
+  margin: 0 .35rem .35rem 0;
+  padding: .38rem .72rem !important;
+  border: 1px solid #5a6068 !important;
+  border-radius: 4px !important;
+  background: #626a73 !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  text-decoration: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.crm-configmanager-block button:hover,
+.crm-configmanager-block input[type="submit"]:hover,
+.crm-configmanager-block a.button:hover,
+.crm-configmanager-block .button:hover {background: #505862 !important; color: #fff !important;}
+.crm-configmanager-block button:disabled,
+.crm-configmanager-block input:disabled,
+.crm-configmanager-block .button.disabled,
+.crm-configmanager-block .button[disabled] {opacity: .55 !important; cursor: not-allowed !important;}
+.crm-configmanager-block .civicfg-actions {align-items: center; gap: .35rem;}
+.crm-configmanager-block .civicfg-site-id {display: inline-block; padding: .35rem .55rem; border: 1px solid #d7dce2; border-radius: 3px; background: #f7f8fa;}
+.crm-configmanager-block .civicfg-experimental {font-weight: 600;}

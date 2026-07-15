@@ -40,9 +40,9 @@ Before treating phase 1 as complete, finish:
 - Mosaico/contact-layout/base-template asset deployment review through the generic bundled bundled extension config support.
 - More complete CiviRules rule-component dependency ordering.
 - Safer generic bundled extension config classification for extension APIs that expose operational data instead of deployable config.
-- Environment override support.
+- More environment override support beyond field-level Config Ignore Values.
 - Further harden destructive import dependency checks and per-record dependency ordering.
-- Global CLI installer/launcher after extension install.
+- CLI installer hardening across more hosting layouts.
 
 ## CLI roadmap
 
@@ -51,7 +51,7 @@ CLI wrapper scripts are available under `bin/` and call the existing API4 action
 Next CLI work:
 
 - Add detailed CLI documentation and examples.
-- Make `civicfg` globally accessible after extension install.
+- Harden project-level CLI wrapper installation/removal across more CMS/project layouts.
 - Keep `ce`, `ci`, `cdf`, and `cval` as documented aliases.
 
 ## Asset tooling

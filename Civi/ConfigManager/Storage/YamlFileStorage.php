@@ -69,6 +69,30 @@ class YamlFileStorage {
     return $path;
   }
 
+  public function delete(string $directory, string $filename): string {
+    $path = $this->getPath($directory, $filename);
+    if (!is_file($path)) {
+      return $path;
+    }
+    if (!@unlink($path)) {
+      throw new \RuntimeException('Could not delete stale config file: ' . $path);
+    }
+    $this->removeEmptyParentDirectories(dirname($path));
+    return $path;
+  }
+
+  private function removeEmptyParentDirectories(string $dir): void {
+    $root = rtrim($this->root, DIRECTORY_SEPARATOR);
+    $dir = rtrim($dir, DIRECTORY_SEPARATOR);
+    while ($dir !== '' && $dir !== $root && strpos($dir, $root . DIRECTORY_SEPARATOR) === 0 && is_dir($dir)) {
+      $items = @scandir($dir);
+      if ($items === FALSE || count(array_diff($items, ['.', '..'])) > 0) {
+        break;
+      }
+      @rmdir($dir);
+      $dir = dirname($dir);
+    }
+  }
 
   public function readFile(string $relativePath): array {
     $relativePath = trim(str_replace('\\', '/', $relativePath), '/');

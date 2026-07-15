@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha42-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha43-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -79,7 +79,7 @@ Config Ignore accepts one relative YAML path or wildcard per line. Ignored files
 
 Config Ignore Values accepts field-level rules in `path/to/file.yml:dot.path` format. Example: `settings/civicrm.settings.yml:items.theme_frontend` lets dev/stage/prod keep different local theme or color settings while the rest of `settings/civicrm.settings.yml` remains managed. Ignored values are removed before diff, export, import, single-file preview, and ZIP download.
 
-Set the optional Site Identifier to the same value on all environments for one site. Export writes this to `manifest.yml`. Import validation blocks YAML from another site when both source and target identifiers are set and they differ, unless Cross-site Import is explicitly enabled for a reviewed migration.
+The Site Identifier is generated automatically and written to `manifest.yml`. A cloned dev/stage/prod database keeps the same value, so same-site environment sync works without manual setup. A different site receives a different value and import validation blocks the YAML unless Experimental Cross-site Import is enabled for a reviewed one-off migration.
 
 Large contributed/custom extension API records are exported as split files under `extensions/<extension-key>/<api>/<entity>/<item>.yml`. The main `extensions/<extension-key>.yml` file keeps the extension status and safe settings, plus a `config_index` so related split files stay connected without creating one very large YAML file.
 
@@ -158,7 +158,7 @@ ext/com.cividesk.configmanager/bin/civicfg ce --write
 ext/com.cividesk.configmanager/bin/civicfg ci --yes
 ```
 
-Future work: make `civicfg` globally available immediately after extension install.
+On install/enable, the extension attempts to create project-level wrappers in `<project-root>/bin` for `civicfg`, `cvcfg`, `config-export`, `ce`, `config-import`, `ci`, `config-diff`, `cdf`, `config-validate`, and `cval`. Existing non-managed files are never overwritten. The project-level wrappers check whether the extension is installed/enabled before delegating to the extension `bin/civicfg` script.
 
 ## Managed configuration types
 
@@ -218,7 +218,7 @@ Most stable config types are stored as collection files, for example `extensions
 - `custom-data/groups/<name>.yml`
 - `extensions/<extension-key>.yml`
 
-Each split file uses `type: <handler>.item`, stores the editable record under `item`, and includes a `dependencies` section where dependencies are detectable. Extension-owned settings are stored in `extensions/<extension-key>.yml`; larger extension-owned API config is split into `extensions/<extension-key>/<api>/<entity>/<item>.yml` and linked from the extension file with `config_index`. Collection files use `type: <handler>.collection` and an `items` list. Existing collection files for these handlers are still accepted for import, but the current export format rewrites them as split files.
+Each split file uses `type: <handler>.item`, stores the editable record under `item`, and includes a `dependencies` section where dependencies are detectable. Export also adds `required_by` reverse metadata where another YAML file depends on the current item, making dependency review easier from either direction. Extension-owned settings are stored in `extensions/<extension-key>.yml`; larger extension-owned API config is split into `extensions/<extension-key>/<api>/<entity>/<item>.yml` and linked from the extension file with `config_index`. Collection files use `type: <handler>.collection` and an `items` list. Existing collection files for these handlers are still accepted for import, but the current export format rewrites them as split files.
 
 The export manifest is written to `manifest.yml`. Its `exported_with` value is read from `info.xml` at runtime, so the extension version only needs to be changed in `info.xml` for generated export metadata.
 
@@ -227,7 +227,7 @@ The export manifest is written to `manifest.yml`. Its `exported_with` value is r
 - Import can delete supported records that are present in CiviCRM but missing from YAML. Delete actions are shown as destructive actions in the import preview. Review the import preview before applying.
 - Machine names are treated as identities.
 - Suspected machine-name renames are warned and skipped.
-- Dependency metadata is validated where available. Missing managed YAML dependencies are treated as import-blocking errors to avoid broken relationships.
+- Dependency metadata is validated where available. Missing managed YAML dependencies are treated as import-blocking errors to avoid broken relationships. Reverse `required_by` metadata is also checked and reported as a warning when it appears stale or incomplete.
 - Large scalar values such as HTML message-template bodies are truncated in UI previews; the YAML and field-level diff still carry the complete value.
 - Payment processor secrets are never exported.
 - Live transactional data is never exported.
@@ -303,7 +303,7 @@ See `docs/ARCHITECTURE.md` for the implementation structure and `docs/IMPLEMENTA
 
 ### CLI wrappers
 
-The extension includes dedicated command wrappers in `bin/` for teams that prefer short commands over raw API4 calls. Run them from a bootstrapped CiviCRM project where `cv` is available.
+The extension includes dedicated command wrappers in `bin/` for teams that prefer short commands over raw API4 calls. Run them from a bootstrapped CiviCRM project where `cv` is available. On install/enable, Configuration Manager also attempts to install project-level wrappers in `<project-root>/bin` so teams can run `civicfg`, `ce`, `ci`, `cdf`, and `cval` from the project without typing the extension path.
 
 ```bash
 ext/com.cividesk.configmanager/bin/config-export --write
@@ -356,4 +356,12 @@ The safest target workflow is one site codebase moving configuration between its
 
 - Extension status/settings remain in `extensions/<extension-key>.yml`. Generic extension-owned API config is split by item under the same extension directory.
 - Field-level ignore rules use `path.yml:dot.path` and are intended for environment-specific values, not dependencies or required identities.
-- The optional Site Identifier is designed for one site across dev/stage/prod; it is not a general cross-site migration guarantee.
+- The Site Identifier is generated automatically for one site family across dev/stage/prod; Experimental Cross-site Import remains a reviewed migration tool, not a general cross-site synchronization guarantee.
+
+## Alpha 43 Notes
+
+- Site Identifier is now automatic and read-only in the UI. It is stored in CiviCRM settings and exported to `manifest.yml`.
+- Cross-site Import is labelled experimental and should stay disabled for normal dev/stage/prod workflows.
+- Export adds reverse `required_by` metadata in addition to forward `dependencies`, so dependency review works both directions.
+- Project-level CLI wrappers are installed when possible without overwriting non-managed files, and they warn if the extension is disabled.
+- Button styling is normalized inside the Configuration Manager page for CiviCRM core/custom theme compatibility.

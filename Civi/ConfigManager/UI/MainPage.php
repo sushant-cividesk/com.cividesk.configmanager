@@ -65,6 +65,13 @@ class MainPage {
       elseif ($postAction === 'save_settings') {
         $this->saveSettings();
         \CRM_Core_Session::setStatus(ts('Configuration Manager settings saved.'), ts('Saved'), 'success');
+        if (!empty($_POST['allow_cross_site_import'])) {
+          \CRM_Core_Session::setStatus(ts('Experimental cross-site import is enabled. Keep it off for normal dev/stage/prod synchronization and use it only for a reviewed one-off migration between different sites.'), ts('Configuration Manager'), 'warning');
+        }
+        $ignoreValueRaw = trim((string) ($_POST['ignore_values'] ?? ''));
+        if ($ignoreValueRaw !== '') {
+          \CRM_Core_Session::setStatus(ts('Config Ignore Values is active. Ignored YAML fields are excluded during diff, export, import, and preview so environments can keep local values. Do not ignore identity fields, dependency fields, or required configuration relationships.'), ts('Configuration Manager'), 'warning');
+        }
         $ignoreRaw = trim((string) ($_POST['ignore_paths'] ?? ''));
         if ($ignoreRaw !== '') {
           \CRM_Core_Session::setStatus(ts('Config Ignore is active. Ignored YAML files are skipped during diff, validate, export, import, single-file preview, and ZIP download. Make sure ignored files are not required dependencies for non-ignored configuration.'), ts('Configuration Manager'), 'warning');
@@ -83,10 +90,11 @@ class MainPage {
         $requestedTypes = $types;
         $exportResult = $this->manager->export(FALSE, $requestedTypes);
         $written = !empty($exportResult['written']) ? count($exportResult['written']) : 0;
+        $deleted = !empty($exportResult['deleted']) ? count($exportResult['deleted']) : 0;
         $skipped = !empty($exportResult['skipped']) ? count($exportResult['skipped']) : 0;
         $dependencyTypes = (array) ($exportResult['dependency_types'] ?? []);
-        $notice = $written
-          ? ts('Export complete. %1 YAML file(s) updated. %2 unchanged file(s) skipped.', [1 => $written, 2 => $skipped])
+        $notice = ($written || $deleted)
+          ? ts('Export complete. %1 YAML file(s) updated, %2 stale YAML file(s) deleted, %3 unchanged file(s) skipped.', [1 => $written, 2 => $deleted, 3 => $skipped])
           : ts('Nothing to export. YAML files already match active CiviCRM configuration.');
         if ($dependencyTypes) {
           $notice .= ' ' . ts('Related dependency types were included automatically: %1.', [1 => implode(', ', $dependencyTypes)]);
@@ -255,11 +263,7 @@ class MainPage {
       \Civi::settings()->set('civicfg_sync_dir', $syncDir);
     }
 
-    $siteId = trim((string) ($_POST['site_id'] ?? ''));
-    if ($siteId !== '' && !preg_match('/^[A-Za-z0-9_.:-]+$/', $siteId)) {
-      throw new RuntimeException('Site Identifier may only contain letters, numbers, dots, underscores, hyphens, and colons.');
-    }
-    \Civi::settings()->set('civicfg_site_id', $siteId);
+    $this->manager->getSiteIdentifier();
     \Civi::settings()->set('civicfg_allow_cross_site_import', !empty($_POST['allow_cross_site_import']) ? 1 : 0);
 
     $enabled = $_POST['enabled_types'] ?? [];
@@ -318,7 +322,7 @@ class MainPage {
     $settingsAllowlist = (array) \Civi::settings()->get('civicfg_settings_allowlist');
     $ignorePaths = $this->manager->getIgnorePatterns();
     $ignoreValues = $this->manager->getIgnoreValuePatterns();
-    $siteId = trim((string) \Civi::settings()->get('civicfg_site_id'));
+    $siteId = $this->manager->getSiteIdentifier();
     $allowCrossSiteImport = (bool) \Civi::settings()->get('civicfg_allow_cross_site_import');
     $diffFiles = $this->presenter->extractDiffFiles($diffResult);
     $importPlan = $this->presenter->buildImportPlan($diffFiles);

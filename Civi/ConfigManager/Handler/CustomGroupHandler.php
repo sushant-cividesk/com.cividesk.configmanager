@@ -79,6 +79,7 @@ class CustomGroupHandler extends AbstractHandler {
 
   public function import(array $items, bool $dryRun = TRUE): array {
     $summary = $this->baseImportSummary($dryRun);
+    $desiredGroupNames = [];
     foreach ($items as $filename => $file) {
       if (($file['type'] ?? '') !== 'custom_group') {
         $summary['errors'][] = ['file' => $filename, 'message' => 'Invalid type. Expected custom_group.'];
@@ -167,7 +168,7 @@ class CustomGroupHandler extends AbstractHandler {
         $summary['errors'][] = ['file' => $filename, 'message' => $e->getMessage()];
       }
     }
-    if ($this->deleteMissingEnabled) {
+    if ($this->deleteMissingEnabled && empty($summary['errors'])) {
       $this->deleteGroupsMissingFromYaml($desiredGroupNames, $dryRun, $summary);
     }
     $summary['ok'] = empty($summary['errors']);

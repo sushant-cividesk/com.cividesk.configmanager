@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-alpha43-core
+
+- Changed Site Identifier from a user-entered option to an automatically generated per-site-family identifier stored in CiviCRM settings. Cloned dev/stage/prod environments keep the same identifier; separate sites get different identifiers.
+- Reworded Cross-site Import as an experimental reviewed-migration option while keeping validation/manual import controls in place.
+- Added reverse dependency metadata (`required_by`) during export so YAML files can show which other managed files depend on them, and validation warns about stale/missing reverse dependency links.
+- Added project-level CLI wrapper installation for `civicfg`, `cvcfg`, `config-export`, `ce`, `config-import`, `ci`, `config-diff`, `cdf`, `config-validate`, and `cval`. Existing non-managed project bin files are not overwritten, and wrappers warn if the extension is disabled.
+- Added lifecycle/upgrade handling for the generated site identifier and CLI wrappers so future releases can upgrade deployed installations cleanly.
+- Tightened scoped button styling so action buttons render consistently across CiviCRM core and custom themes.
+- Hotfix: export now removes stale managed YAML files when the matching active CiviCRM record no longer exists, instead of reporting nothing to export.
+- Hotfixed Custom Groups import to initialize the desired-group tracking list and skip delete-missing checks when earlier custom-data import errors exist, preventing a PHP TypeError and unsafe follow-up cleanup.
+
 ## 0.1.0-alpha42-core
 
 - Added an optional Configuration Manager Site Identifier. Export writes it to `manifest.yml`; validation blocks imports from a different site when both source and target identifiers are set unless cross-site import is explicitly allowed.

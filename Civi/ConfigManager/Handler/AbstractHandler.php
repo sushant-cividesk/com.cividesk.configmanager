@@ -88,6 +88,10 @@ abstract class AbstractHandler implements HandlerInterface {
    * another database does not show false changes or imply an unsafe update.
    */
   protected function normaliseDataForDiff(array $data): array {
+    unset($data['required_by']);
+    if (isset($data['item']) && is_array($data['item'])) {
+      unset($data['item']['required_by']);
+    }
     return $data;
   }
 

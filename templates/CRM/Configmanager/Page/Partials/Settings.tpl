@@ -18,17 +18,17 @@
         </tr>
 
         <tr>
-          <td class="label"><label for="site_id">{ts}Site Identifier{/ts}</label></td>
+          <td class="label">{ts}Site Identifier{/ts}</td>
           <td>
-            <input type="text" class="crm-form-text huge" size="70" id="site_id" name="site_id" value="{$siteId|escape}" />
-            <p class="description">{ts}Optional shared identifier for this one site across environments. Use the same value on dev, stage, and production for the same project. When both source YAML and target site have a value and they do not match, import validation is blocked unless cross-site import is explicitly allowed below.{/ts}</p>
+            <code class="civicfg-site-id">{$siteId|escape}</code>
+            <p class="description">{ts}Generated automatically and stored in CiviCRM settings. A cloned dev/stage/prod database keeps the same identifier, so normal same-site environment sync works without manual setup. A separate site receives a different identifier and is blocked from import unless experimental cross-site import is enabled below.{/ts}</p>
           </td>
         </tr>
         <tr>
           <td class="label">{ts}Cross-site Import{/ts}</td>
           <td>
-            <label><input type="checkbox" name="allow_cross_site_import" value="1" {if $allowCrossSiteImport}checked="checked"{/if} /> {ts}Allow import when manifest site identifier does not match this site{/ts}</label>
-            <p class="description">{ts}Keep this disabled for normal dev/stage/prod sync. Enable only for a reviewed one-off migration between different sites.{/ts}</p>
+            <label class="civicfg-experimental"><input type="checkbox" name="allow_cross_site_import" value="1" {if $allowCrossSiteImport}checked="checked"{/if} /> {ts}Experimental: allow reviewed cross-site import when the manifest site identifier does not match this site{/ts}</label>
+            <p class="description">{ts}Keep this disabled for normal dev/stage/prod sync. Enable only when intentionally migrating reviewed YAML between different sites. Validation still runs before import, and import remains manual.{/ts}</p>
           </td>
         </tr>
         <tr>

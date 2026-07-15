@@ -36,6 +36,49 @@ spl_autoload_register(function ($class) {
   }
 });
 
+
+/**
+ * Runtime/install helper for site identity and optional project-level CLI wrappers.
+ */
+function _configmanager_lifecycle(bool $installCli = TRUE, bool $removeCli = FALSE): void {
+  try {
+    $installer = new \Civi\ConfigManager\Service\CliInstaller();
+    $installer->ensureSiteIdentifier();
+    if ($removeCli) {
+      $installer->uninstall();
+    }
+    elseif ($installCli) {
+      $installer->install();
+    }
+  }
+  catch (\Throwable $e) {
+    if (class_exists('Civi')) {
+      \Civi::log()->warning('Configuration Manager lifecycle helper failed: ' . $e->getMessage());
+    }
+  }
+}
+
+/**
+ * Implements hook_civicrm_install().
+ */
+function configmanager_civicrm_install() {
+  _configmanager_lifecycle(TRUE, FALSE);
+}
+
+/**
+ * Implements hook_civicrm_enable().
+ */
+function configmanager_civicrm_enable() {
+  _configmanager_lifecycle(TRUE, FALSE);
+}
+
+/**
+ * Implements hook_civicrm_uninstall().
+ */
+function configmanager_civicrm_uninstall() {
+  _configmanager_lifecycle(FALSE, TRUE);
+}
+
 /**
  * Implements hook_civicrm_config().
  */
@@ -92,6 +135,7 @@ function configmanager_civicrm_navigationMenu(&$menu) {
  */
 function configmanager_civicrm_check(&$messages) {
   try {
+    _configmanager_lifecycle(TRUE, FALSE);
     $manager = new \Civi\ConfigManager\Service\ConfigManager();
     $health = $manager->getHealth();
     $url = \CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=sync', TRUE, NULL, FALSE, TRUE);

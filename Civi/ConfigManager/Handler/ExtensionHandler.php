@@ -212,8 +212,9 @@ class ExtensionHandler extends AbstractHandler {
   }
 
   protected function normaliseDataForDiff(array $data): array {
-    if (($data['type'] ?? '') === 'extensions.collection') {
-      return $data;
+    unset($data['required_by']);
+    if (isset($data['item']) && is_array($data['item'])) {
+      unset($data['item']['required_by']);
     }
     return $data;
   }

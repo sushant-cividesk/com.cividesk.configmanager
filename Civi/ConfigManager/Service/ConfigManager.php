@@ -32,6 +32,32 @@ class ConfigManager {
     return 'civicrm-config';
   }
 
+
+  public function getSiteIdentifier(): string {
+    $siteId = trim((string) \Civi::settings()->get('civicfg_site_id'));
+    if ($this->isValidSiteIdentifier($siteId)) {
+      return $siteId;
+    }
+    $siteId = $this->generateSiteIdentifier();
+    \Civi::settings()->set('civicfg_site_id', $siteId);
+    return $siteId;
+  }
+
+  public function isValidSiteIdentifier(string $siteId): bool {
+    return $siteId !== '' && (bool) preg_match('/^[A-Za-z0-9_.:-]+$/', $siteId);
+  }
+
+  private function generateSiteIdentifier(): string {
+    try {
+      $bytes = random_bytes(16);
+    }
+    catch (\Throwable $e) {
+      $bytes = sha1(uniqid('', TRUE) . microtime(TRUE), TRUE);
+    }
+    $hex = bin2hex($bytes);
+    return 'civicfg-' . substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-' . substr($hex, 12, 4) . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20, 12);
+  }
+
   public function getProjectRoot(): string {
     foreach ($this->getProjectRootCandidates() as $candidate) {
       if ($candidate !== '' && is_dir($candidate)) {
@@ -258,7 +284,9 @@ class ConfigManager {
       'effective_types' => $effectiveTypes,
       'dependency_types' => $dependencyTypes,
       'written' => [],
+      'deleted' => [],
       'planned' => [],
+      'delete_planned' => [],
       'skipped' => [],
       'errors' => [],
       'message' => NULL,
@@ -274,6 +302,8 @@ class ConfigManager {
       }
     }
 
+    $queue = [];
+    $successfulHandlers = [];
     foreach ($this->getHandlers() as $handler) {
       if ($effectiveTypes && !in_array($handler->getType(), $effectiveTypes, TRUE)) {
         continue;
@@ -285,25 +315,15 @@ class ConfigManager {
             $summary['skipped'][] = $relative . ' (ignored)';
             continue;
           }
-          $file['data'] = $this->applyIgnoredValueRules($relative, (array) ($file['data'] ?? []));
-          $isSame = $storage->isSame($handler->getDirectory(), $file['filename'], $file['data']);
-          if ($dryRun) {
-            if (!$isSame) {
-              $summary['planned'][] = $relative;
-            }
-            else {
-              $summary['skipped'][] = $relative;
-            }
-          }
-          else {
-            if ($isSame) {
-              $summary['skipped'][] = $relative;
-            }
-            else {
-              $summary['written'][] = $storage->write($handler->getDirectory(), $file['filename'], $file['data']);
-            }
-          }
+          $queue[] = [
+            'type' => $handler->getType(),
+            'directory' => $handler->getDirectory(),
+            'filename' => $file['filename'],
+            'relative' => $relative,
+            'data' => $this->applyIgnoredValueRules($relative, (array) ($file['data'] ?? [])),
+          ];
         }
+        $successfulHandlers[] = $handler;
       }
       catch (\Throwable $e) {
         $summary['errors'][] = [
@@ -312,14 +332,131 @@ class ConfigManager {
         ];
       }
     }
+
+    $queue = $this->addReverseDependencyMetadataToExportQueue($queue);
+    $exportedRelative = [];
+    foreach ($queue as $file) {
+      $exportedRelative[(string) ($file['relative'] ?? '')] = TRUE;
+    }
+
+    foreach ($this->findStaleYamlFilesForExport($storage, $successfulHandlers, $exportedRelative) as $staleFile) {
+      if ($dryRun) {
+        $summary['delete_planned'][] = (string) $staleFile['relative'];
+        $summary['planned'][] = (string) $staleFile['relative'] . ' (delete stale YAML)';
+      }
+      else {
+        $summary['deleted'][] = $storage->delete((string) $staleFile['directory'], (string) $staleFile['filename']);
+      }
+    }
+
+    foreach ($queue as $file) {
+      $data = $this->applyIgnoredValueRules((string) $file['relative'], (array) $file['data']);
+      $isSame = $storage->isSame((string) $file['directory'], (string) $file['filename'], $data);
+      if ($dryRun) {
+        if (!$isSame) {
+          $summary['planned'][] = (string) $file['relative'];
+        }
+        else {
+          $summary['skipped'][] = (string) $file['relative'];
+        }
+      }
+      else {
+        if ($isSame) {
+          $summary['skipped'][] = (string) $file['relative'];
+        }
+        else {
+          $summary['written'][] = $storage->write((string) $file['directory'], (string) $file['filename'], $data);
+        }
+      }
+    }
+
     $summary['ok'] = empty($summary['errors']);
     if ($dryRun && !$summary['planned'] && !$summary['errors']) {
       $summary['message'] = 'No export changes. YAML files already match the active database configuration.';
     }
-    elseif (!$dryRun && !$summary['written'] && !$summary['errors']) {
+    elseif (!$dryRun && !$summary['written'] && !$summary['deleted'] && !$summary['errors']) {
       $summary['message'] = 'No files written. YAML files already match the active database configuration.';
     }
     return $summary;
+  }
+
+  private function findStaleYamlFilesForExport(YamlFileStorage $storage, array $handlers, array $exportedRelative): array {
+    $stale = [];
+    foreach ($handlers as $handler) {
+      $directory = trim((string) $handler->getDirectory(), '/');
+      foreach ($storage->readDirectory($handler->getDirectory()) as $filename => $data) {
+        $relative = $directory === '' ? (string) $filename : $directory . '/' . (string) $filename;
+        if (isset($exportedRelative[$relative]) || $this->isIgnoredPath($relative)) {
+          continue;
+        }
+        $stale[$relative] = [
+          'directory' => $handler->getDirectory(),
+          'filename' => (string) $filename,
+          'relative' => $relative,
+        ];
+      }
+    }
+    ksort($stale);
+    return array_values($stale);
+  }
+
+  private function addReverseDependencyMetadataToExportQueue(array $queue): array {
+    $index = [];
+    foreach ($queue as $i => $file) {
+      foreach ($this->namesFromYamlFile((array) ($file['data'] ?? [])) as $name) {
+        $index[(string) $file['type']][(string) $name][] = $i;
+      }
+    }
+
+    foreach ($queue as $i => $file) {
+      $sourceData = (array) ($file['data'] ?? []);
+      $sourceNames = $this->namesFromYamlFile($sourceData);
+      $sourceName = $sourceNames[0] ?? (string) ($file['relative'] ?? '');
+      foreach ($this->extractDependenciesFromYamlFile($sourceData) as $dependency) {
+        $dependencyType = (string) ($dependency['type'] ?? '');
+        $dependencyName = (string) ($dependency['name'] ?? '');
+        if ($dependencyType === '' || $dependencyName === '' || empty($index[$dependencyType][$dependencyName])) {
+          continue;
+        }
+        foreach ($index[$dependencyType][$dependencyName] as $targetIndex) {
+          if ($targetIndex === $i) {
+            continue;
+          }
+          $queue[$targetIndex]['data']['required_by'][] = [
+            'type' => (string) ($file['type'] ?? ''),
+            'name' => (string) $sourceName,
+            'path' => (string) ($file['relative'] ?? ''),
+            'reason' => (string) ($dependency['reason'] ?? 'This YAML item depends on this configuration.'),
+          ];
+        }
+      }
+    }
+
+    foreach ($queue as &$file) {
+      if (!empty($file['data']['required_by']) && is_array($file['data']['required_by'])) {
+        $file['data']['required_by'] = $this->uniqueDependencyLikeRows((array) $file['data']['required_by']);
+      }
+    }
+    unset($file);
+    return $queue;
+  }
+
+  private function uniqueDependencyLikeRows(array $rows): array {
+    $seen = [];
+    $unique = [];
+    foreach ($rows as $row) {
+      if (!is_array($row)) {
+        continue;
+      }
+      ksort($row);
+      $key = json_encode($row);
+      if ($key === FALSE || isset($seen[$key])) {
+        continue;
+      }
+      $seen[$key] = TRUE;
+      $unique[] = $row;
+    }
+    return $unique;
   }
 
   public function diff(array $typeFilter = []): array {
@@ -410,6 +547,19 @@ class ConfigManager {
             $result['items'][$itemIndex[$type]]['errors'][] = [
               'file' => $filename,
               'message' => $message,
+            ];
+          }
+        }
+        foreach ($this->extractRequiredByFromYamlFile((array) $file) as $requiredBy) {
+          $requiredByType = (string) ($requiredBy['type'] ?? '');
+          $requiredByName = (string) ($requiredBy['name'] ?? '');
+          if ($requiredByType === '' || $requiredByName === '' || !isset($managedTypes[$requiredByType])) {
+            continue;
+          }
+          if (!isset($available[$requiredByType][$requiredByName])) {
+            $result['items'][$itemIndex[$type]]['warnings'][] = [
+              'file' => $filename,
+              'message' => sprintf('Reverse dependency metadata says this item is required by %s "%s", but that YAML item is not present. This is usually stale metadata or a filtered/ignored dependency; re-export the related items together before relying on this dependency graph.', $requiredByType, $requiredByName),
             ];
           }
         }
@@ -516,6 +666,22 @@ class ConfigManager {
       }
     }
     return $dependencies;
+  }
+
+
+  private function extractRequiredByFromYamlFile(array $file): array {
+    $requiredBy = [];
+    foreach (($file['required_by'] ?? []) as $row) {
+      if (is_array($row)) {
+        $requiredBy[] = $row;
+      }
+    }
+    foreach (($file['item']['required_by'] ?? []) as $row) {
+      if (is_array($row)) {
+        $requiredBy[] = $row;
+      }
+    }
+    return $requiredBy;
   }
 
   public function import(bool $dryRun = TRUE, bool $yes = FALSE, array $typeFilter = []): array {
@@ -824,13 +990,13 @@ class ConfigManager {
       return;
     }
     $manifestSite = trim((string) ($manifest['site_id'] ?? ''));
-    $localSite = trim((string) \Civi::settings()->get('civicfg_site_id'));
+    $localSite = $this->getSiteIdentifier();
     $allowCrossSite = (bool) \Civi::settings()->get('civicfg_allow_cross_site_import');
     if ($manifestSite !== '' && $localSite !== '' && $manifestSite !== $localSite && !$allowCrossSite) {
       $result['ok'] = FALSE;
       $result['errors'][] = [
         'type' => 'manifest',
-        'message' => sprintf('Manifest site_id "%s" does not match this site_id "%s". Use the same Configuration Manager Site Identifier across dev/stage/prod for the same site, or explicitly allow cross-site import for a reviewed one-off migration.', $manifestSite, $localSite),
+        'message' => sprintf('Manifest site_id "%s" does not match this site_id "%s". This usually means the YAML belongs to a different site family. Dev/stage/prod for the same project should share this automatically generated identifier through the database. Enable experimental cross-site import only for a reviewed one-off migration.', $manifestSite, $localSite),
       ];
     }
   }
@@ -946,7 +1112,7 @@ class ConfigManager {
   }
 
   private function getManifestData(): array {
-    $siteId = trim((string) \Civi::settings()->get('civicfg_site_id'));
+    $siteId = $this->getSiteIdentifier();
     $manifest = [
       'schema_version' => 1,
       'extension' => Version::EXTENSION_KEY,
