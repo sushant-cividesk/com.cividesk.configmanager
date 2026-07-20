@@ -76,7 +76,7 @@ class ExtensionHandler extends AbstractHandler {
         continue;
       }
       if ($type === 'extension_config.item') {
-        $this->validateExtensionConfigItem($filename, $item, $definitions, $errors);
+        $this->validateExtensionConfigItem($filename, $item, $definitions, $errors, $warnings);
         continue;
       }
       if ($type !== 'extension.item') {
@@ -304,6 +304,11 @@ class ExtensionHandler extends AbstractHandler {
       $existing = $this->findExistingEntityRow($definition, $identityField, $identity);
       if ($existing) {
         if ($this->desiredDiffers($existing, $desired)) {
+          if (empty($definition['can_update']) && array_key_exists('can_update', $definition)) {
+            $summary['config']['skip']++;
+            $summary['warnings'][] = ['file' => $filename, 'name' => $identity, 'message' => sprintf('Skipped update for read-only extension config %s %s.', $definition['api'], $definition['entity'])];
+            return;
+          }
           $summary['config']['update']++;
           if (!$dryRun) {
             $this->updateEntityRow($definition, (array) $existing, $desired);
@@ -314,6 +319,11 @@ class ExtensionHandler extends AbstractHandler {
         }
       }
       else {
+        if (empty($definition['can_create']) && array_key_exists('can_create', $definition)) {
+          $summary['config']['skip']++;
+          $summary['warnings'][] = ['file' => $filename, 'name' => $identity, 'message' => sprintf('Skipped create for read-only extension config %s %s.', $definition['api'], $definition['entity'])];
+          return;
+        }
         $summary['config']['create']++;
         if (!$dryRun) {
           $this->createEntityRow($definition, $desired);
@@ -344,6 +354,14 @@ class ExtensionHandler extends AbstractHandler {
       }
       $identity = (string) $existing[$identityField];
       if (isset($desiredKeys[$this->identityKey($identityField, $identity)])) {
+        continue;
+      }
+      if (empty($definition['can_delete']) && array_key_exists('can_delete', $definition)) {
+        $summary['config']['skip']++;
+        $summary['warnings'][] = [
+          'name' => $identity,
+          'message' => sprintf('Skipped delete for extension config %s %s because the provider API does not expose delete.', $definition['api'], $definition['entity']),
+        ];
         continue;
       }
       $summary['config']['delete']++;
@@ -385,7 +403,7 @@ class ExtensionHandler extends AbstractHandler {
     return $rows;
   }
 
-  private function validateExtensionConfigItem(string $filename, array $item, array $definitions, array &$errors): void {
+  private function validateExtensionConfigItem(string $filename, array $item, array $definitions, array &$errors, array &$warnings): void {
     $extensionKey = (string) ($item['extension'] ?? '');
     $api = (string) ($item['api'] ?? '');
     $entity = (string) ($item['entity'] ?? '');
@@ -395,6 +413,13 @@ class ExtensionHandler extends AbstractHandler {
     }
     $definitionKey = $this->definitionKey($extensionKey, $api, $entity);
     if (!isset($definitions[$definitionKey])) {
+      if ($this->isNonImportableLegacyExtensionConfig($extensionKey, $api, $entity)) {
+        $warnings[] = [
+          'file' => $filename,
+          'message' => sprintf('Read-only/generated extension config is no longer imported and should be removed by running Export: extension %s, %s entity %s.', $extensionKey, $api, $entity),
+        ];
+        return;
+      }
       $errors[] = [
         'file' => $filename,
         'message' => sprintf('Extension config provider is not available: extension %s, %s entity %s. Install/enable that extension before import.', $extensionKey, $api, $entity),
@@ -416,6 +441,14 @@ class ExtensionHandler extends AbstractHandler {
     $entity = (string) ($configEntry['entity'] ?? '');
     $definitionKey = $this->definitionKey($extensionKey, $api, $entity);
     if (!isset($definitions[$definitionKey])) {
+      if ($this->isNonImportableLegacyExtensionConfig($extensionKey, $api, $entity)) {
+        $summary['config']['skip']++;
+        $summary['warnings'][] = [
+          'file' => $filename,
+          'message' => sprintf('Skipped read-only/generated extension config %s %s. Re-export to remove this obsolete YAML file.', $api, $entity),
+        ];
+        return;
+      }
       $summary['errors'][] = [
         'file' => $filename,
         'message' => sprintf('Extension config provider is not available: extension %s, %s entity %s.', $extensionKey, $api, $entity),
@@ -423,6 +456,14 @@ class ExtensionHandler extends AbstractHandler {
       return;
     }
     $definition = $definitions[$definitionKey];
+    if ($this->isNonImportableDefinition($definition)) {
+      $summary['config']['skip']++;
+      $summary['warnings'][] = [
+        'file' => $filename,
+        'message' => sprintf('Skipped read-only/generated extension config %s %s. Re-export to remove this obsolete YAML file.', $api, $entity),
+      ];
+      return;
+    }
     $configItem = (array) ($configEntry['item'] ?? []);
     $row = (array) ($configItem['item'] ?? $configItem);
     $identityField = (string) ($configItem['identity_field'] ?? ($configEntry['identity_field'] ?? ''));
@@ -523,7 +564,7 @@ class ExtensionHandler extends AbstractHandler {
     $index = [];
     foreach ($this->discoverEntityDefinitions() as $definition) {
       $extensionKey = (string) $definition['extension'];
-      if ($this->isGenericConfigSkippedExtension($extensionKey)) {
+      if ($this->isGenericConfigSkippedExtension($extensionKey) || $this->isNonImportableDefinition($definition)) {
         continue;
       }
       $usedNames = [];
@@ -587,7 +628,7 @@ class ExtensionHandler extends AbstractHandler {
 
   private function isPackagedExtensionAssetRow(array $row, array $definition): bool {
     $extensionKey = (string) ($definition['extension'] ?? '');
-    $json = json_encode($row);
+    $json = json_encode($row, JSON_UNESCAPED_SLASHES);
     if (!$json || $extensionKey === '') {
       return FALSE;
     }
@@ -610,7 +651,7 @@ class ExtensionHandler extends AbstractHandler {
     $groups = [];
     foreach ($this->discoverEntityDefinitions() as $definition) {
       $extensionKey = (string) $definition['extension'];
-      if ($this->isGenericConfigSkippedExtension($extensionKey)) {
+      if ($this->isGenericConfigSkippedExtension($extensionKey) || $this->isNonImportableDefinition($definition)) {
         continue;
       }
       foreach ($this->fetchEntityRows($definition) as $row) {
@@ -758,7 +799,10 @@ class ExtensionHandler extends AbstractHandler {
       if ($entity === '' || in_array(strtolower($entity), ['utils'], TRUE)) {
         continue;
       }
-      if (!$this->api3EntityUsable($entity)) {
+      if ($this->isNonImportableLegacyExtensionConfig($extensionKey, 'api3', $entity)) {
+        continue;
+      }
+      if (!$this->api3EntityUsable($entity) || !$this->api3EntityHasAction($entity, 'create')) {
         continue;
       }
       $definitions[] = [
@@ -766,6 +810,9 @@ class ExtensionHandler extends AbstractHandler {
         'api' => 'api3',
         'entity' => $entity,
         'fields' => [],
+        'can_create' => TRUE,
+        'can_update' => TRUE,
+        'can_delete' => $this->api3EntityHasAction($entity, 'delete'),
       ];
     }
     return $definitions;
@@ -792,6 +839,28 @@ class ExtensionHandler extends AbstractHandler {
     }
     catch (\Throwable $e) {
       return FALSE;
+    }
+  }
+
+  private function api3EntityHasAction(string $entity, string $action): bool {
+    try {
+      $result = civicrm_api3($entity, 'getactions', ['sequential' => 1]);
+      $values = [];
+      foreach ((array) ($result['values'] ?? []) as $key => $value) {
+        if (is_string($key) && $key !== '') {
+          $values[] = strtolower($key);
+        }
+        if (is_scalar($value) && (string) $value !== '') {
+          $values[] = strtolower((string) $value);
+        }
+      }
+      return in_array(strtolower($action), array_values(array_unique($values)), TRUE);
+    }
+    catch (\Throwable $e) {
+      // Older API3 providers may not expose getactions consistently. Keep the
+      // entity discoverable unless we can prove the action is absent; explicit
+      // read-only/generated entities are filtered separately.
+      return TRUE;
     }
   }
 
@@ -1031,6 +1100,29 @@ class ExtensionHandler extends AbstractHandler {
       // Leave empty.
     }
     return $keys;
+  }
+
+  private function isNonImportableDefinition(array $definition): bool {
+    return $this->isNonImportableLegacyExtensionConfig(
+      (string) ($definition['extension'] ?? ''),
+      (string) ($definition['api'] ?? ''),
+      (string) ($definition['entity'] ?? '')
+    );
+  }
+
+  private function isNonImportableLegacyExtensionConfig(string $extensionKey, string $api, string $entity): bool {
+    $entityLower = strtolower($entity);
+    $extensionLower = strtolower($extensionKey);
+
+    // Mosaico base templates are generated from packaged template files and
+    // include environment-specific URLs. The API supports reading them but not
+    // reliable create/update import, so they must not be managed as deployable
+    // YAML. User-created MosaicoTemplate records remain managed separately.
+    if ($extensionLower === 'uk.co.vedaconsulting.mosaico' && $entityLower === 'mosaicobasetemplate') {
+      return TRUE;
+    }
+
+    return FALSE;
   }
 
   private function isGenericConfigSkippedExtension(string $extensionKey): bool {

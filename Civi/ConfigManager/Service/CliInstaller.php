@@ -141,6 +141,8 @@ BASH;
 
   private function isManagedWrapper(string $file): bool {
     $contents = @file_get_contents($file);
-    return is_string($contents) && strpos($contents, 'Managed by Configuration Manager extension') !== FALSE;
+    return is_string($contents)
+      && (strpos($contents, 'Managed by Configuration Manager extension') !== FALSE
+        || strpos($contents, 'Managed by Configuration Manager extension') !== FALSE);
   }
 }

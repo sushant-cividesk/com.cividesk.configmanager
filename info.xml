@@ -9,7 +9,7 @@
     <email>sushant@cividesk.com</email>
   </maintainer>
   <releaseDate>2026-07-06</releaseDate>
-  <version>0.1.0-alpha43-core</version>
+  <version>0.1.0-alpha44-core</version>
   <develStage>alpha</develStage>
   <compatibility>
     <ver>5.0</ver>
@@ -18,5 +18,5 @@
   <mixins>
     <mixin>scan-classes@1.0.0</mixin>
   </mixins>
-  <comments>Alpha core build: automatic site identity, reverse dependency metadata, project-level CLI wrappers, and cross-theme button normalization.</comments>
+  <comments>Alpha core build: skips read-only extension-generated config, improves Mosaico cross-environment sync, and updates visible product name.</comments>
 </extension>

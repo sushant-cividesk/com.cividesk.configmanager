@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha44-core
+
+- Renamed the visible product label from Configuration Manager to Configuration Manager while keeping the existing extension machine key for upgrade safety.
+- Stopped exporting/importing MosaicoBaseTemplate records because they are generated from packaged extension assets and contain environment-specific URLs.
+- Existing legacy MosaicoBaseTemplate YAML files are now skipped with a warning during import and should be removed by running Export.
+- Hardened generic API3 extension-config discovery so read-only providers without create support are not treated as deployable config.
+- Prevented read-only generic extension config from causing hard import errors when syncing same-site dev/stage environments.
+
 ## 0.1.0-alpha43-core
 
 - Changed Site Identifier from a user-entered option to an automatically generated per-site-family identifier stored in CiviCRM settings. Cloned dev/stage/prod environments keep the same identifier; separate sites get different identifiers.
