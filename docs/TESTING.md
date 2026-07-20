@@ -85,7 +85,7 @@ Option group value validation allows CiviCRM core data where option value names 
 ## Alpha37 tests
 
 - Export a SearchKit display named `Table` under a saved search, reinstall the site, then import. Confirm it matches by saved search name plus display name and does not fail with an already-exists error.
-- Confirm `extensions/com.cividesk.configmanager.yml` is ignored by default in Synchronize, Validate, Export, and Import.
+- Confirm `extensions/civi.config.manager.yml` is ignored by default in Synchronize, Validate, Export, and Import.
 - Add a path to Config Ignore and confirm it is excluded from changed-file and import previews.
 
 ## Alpha40 generic bundled extension config tests

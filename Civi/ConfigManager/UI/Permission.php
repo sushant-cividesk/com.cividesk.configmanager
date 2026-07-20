@@ -47,7 +47,7 @@ class Permission {
   public function requireForPage(string $op, string $postAction): void {
     self::require(self::ACCESS);
 
-    if (in_array($op, ['single-export-json', 'download-archive', 'download-single', 'export'], TRUE) || $postAction === 'export_write') {
+    if (in_array($op, ['single-export-json', 'download-archive', 'download-single', 'export'], TRUE) || in_array($postAction, ['export_write', 'revert_file'], TRUE)) {
       self::require(self::EXPORT);
     }
 
@@ -55,7 +55,7 @@ class Permission {
       self::require(self::IMPORT);
     }
 
-    if ($op === 'settings' || $postAction === 'save_settings') {
+    if ($op === 'settings' || in_array($postAction, ['save_settings', 'ignore_config'], TRUE)) {
       self::require(self::ADMINISTER);
     }
   }

@@ -47,24 +47,74 @@ class Presenter {
     }
 
     $rows = [];
-    foreach ($manager->getAllHandlers() as $handler) {
-      $type = $handler->getType();
+    foreach ($manager->getManagedTypeOptions() as $option) {
+      $type = (string) $option['type'];
+      $baseType = (string) ($option['base_type'] ?? $type);
+      $diff = $diffByType[$baseType] ?? [];
+      if (!empty($option['virtual'])) {
+        $counts = $this->countsForVirtualType($type, $diff);
+        $dbCount = NULL;
+        $fileCount = NULL;
+        $status = ($counts['changed'] || $counts['new'] || $counts['missing']) ? 'changed' : ($diff['status'] ?? NULL);
+      }
+      else {
+        $counts = [
+          'changed' => !empty($diff['changed']) ? count($diff['changed']) : 0,
+          'new' => !empty($diff['new_in_db']) ? count($diff['new_in_db']) : 0,
+          'missing' => !empty($diff['missing_in_db']) ? count($diff['missing_in_db']) : 0,
+        ];
+        $dbCount = $diff['db_count'] ?? NULL;
+        $fileCount = $diff['file_count'] ?? ($diff['count'] ?? NULL);
+        $status = $diff['status'] ?? NULL;
+      }
       $rows[] = [
         'type' => $type,
-        'label' => $handler->getLabel(),
-        'directory' => $handler->getDirectory(),
-        'weight' => $handler->getWeight(),
-        'status' => $diffByType[$type]['status'] ?? NULL,
-        'dbCount' => $diffByType[$type]['db_count'] ?? NULL,
-        'fileCount' => $diffByType[$type]['file_count'] ?? ($diffByType[$type]['count'] ?? NULL),
-        'changedCount' => !empty($diffByType[$type]['changed']) ? count($diffByType[$type]['changed']) : 0,
-        'newCount' => !empty($diffByType[$type]['new_in_db']) ? count($diffByType[$type]['new_in_db']) : 0,
-        'missingCount' => !empty($diffByType[$type]['missing_in_db']) ? count($diffByType[$type]['missing_in_db']) : 0,
-        'valid' => $diffByType[$type]['valid'] ?? NULL,
+        'base_type' => $baseType,
+        'label' => (string) $option['label'],
+        'directory' => (string) ($option['directory'] ?? ''),
+        'weight' => (int) ($option['weight'] ?? 0),
+        'virtual' => !empty($option['virtual']),
+        'status' => $status,
+        'dbCount' => $dbCount,
+        'fileCount' => $fileCount,
+        'changedCount' => $counts['changed'],
+        'newCount' => $counts['new'],
+        'missingCount' => $counts['missing'],
+        'valid' => $diff['valid'] ?? NULL,
         'statusUrl' => \CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=sync&type=' . rawurlencode($type)),
       ];
     }
     return $rows;
+  }
+
+  private function countsForVirtualType(string $type, array $diff): array {
+    $counts = ['changed' => 0, 'new' => 0, 'missing' => 0];
+    foreach (($diff['files'] ?? []) as $file) {
+      $path = (string) ($file['path'] ?? '');
+      if (!$this->pathMatchesVirtualType($path, $type)) {
+        continue;
+      }
+      $status = (string) ($file['status'] ?? 'changed');
+      if ($status === 'new_in_db') {
+        $counts['new']++;
+      }
+      elseif ($status === 'missing_in_db') {
+        $counts['missing']++;
+      }
+      else {
+        $counts['changed']++;
+      }
+    }
+    return $counts;
+  }
+
+  private function pathMatchesVirtualType(string $path, string $type): bool {
+    $parts = explode(':', $type);
+    if (count($parts) !== 4 || $parts[0] !== 'extensions') {
+      return FALSE;
+    }
+    $prefix = 'extensions/' . $parts[1] . '/' . $parts[2] . '/' . $parts[3] . '/';
+    return strpos($path, $prefix) === 0;
   }
 
   public function buildSummary(array $result, array $status, string $op): array {
@@ -104,9 +154,10 @@ class Presenter {
   public function labelsForTypes(ConfigManager $manager, array $types): array {
     $wanted = array_fill_keys(array_map('strval', $types), TRUE);
     $labels = [];
-    foreach ($manager->getAllHandlers() as $handler) {
-      if (isset($wanted[$handler->getType()])) {
-        $labels[$handler->getType()] = $handler->getLabel();
+    foreach ($manager->getManagedTypeOptions() as $row) {
+      $type = (string) $row['type'];
+      if (isset($wanted[$type])) {
+        $labels[$type] = (string) $row['label'];
       }
     }
     return $labels;

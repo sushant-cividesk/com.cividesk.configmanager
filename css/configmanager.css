@@ -165,3 +165,7 @@
 .crm-configmanager-block .civicfg-actions {align-items: center; gap: .35rem;}
 .crm-configmanager-block .civicfg-site-id {display: inline-block; padding: .35rem .55rem; border: 1px solid #d7dce2; border-radius: 3px; background: #f7f8fa;}
 .crm-configmanager-block .civicfg-experimental {font-weight: 600;}
+.crm-configmanager-block .civicfg-file-line form {display: inline-flex; margin: 0;}
+.crm-configmanager-block .civicfg-ignore-choice {margin: .75rem 0; padding: .5rem; border: 1px solid #d7dce2; border-radius: 3px; background: #fafafa;}
+.crm-configmanager-block .civicfg-ignore-fields {display: grid; gap: .35rem; margin: .5rem 0 0 1.4rem;}
+.crm-configmanager-block .civicfg-ignore-fields code {margin-left: .35rem;}

@@ -2,7 +2,7 @@
 namespace Civi\ConfigManager;
 
 class Version {
-  public const EXTENSION_KEY = 'com.cividesk.configmanager';
+  public const EXTENSION_KEY = 'civi.config.manager';
   private static ?string $version = NULL;
 
   public static function get(): string {

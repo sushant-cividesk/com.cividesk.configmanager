@@ -2,11 +2,11 @@
 
 Configuration Manager is a CiviCRM extension that exports selected CiviCRM configuration to YAML, compares the active database with the YAML sync directory, and imports supported YAML changes back into CiviCRM.
 
-- Extension key: `com.cividesk.configmanager`
+- Extension key: `civi.config.manager`
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha44-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha45-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -75,7 +75,7 @@ Settings include:
 - Settings Allowlist
 - Config Ignore
 
-Config Ignore accepts one relative YAML path or wildcard per line. Ignored files are skipped during diff, validate, export, and import. `extensions/com.cividesk.configmanager.yml` is ignored by default to avoid self-management loops; remove it only if you intentionally want this extension to manage its own extension status.
+Config Ignore accepts one relative YAML path or wildcard per line. Ignored files are skipped during diff, validate, export, and import. `extensions/civi.config.manager.yml` and legacy self-extension YAML keys are ignored by default to avoid self-management loops; remove it only if you intentionally want this extension to manage its own extension status.
 
 Config Ignore Values accepts field-level rules in `path/to/file.yml:dot.path` format. Example: `settings/civicrm.settings.yml:items.theme_frontend` lets dev/stage/prod keep different local theme or color settings while the rest of `settings/civicrm.settings.yml` remains managed. Ignored values are removed before diff, export, import, single-file preview, and ZIP download.
 
@@ -150,14 +150,14 @@ Preferred CLI commands are available under the extension `bin/` directory:
 Examples:
 
 ```bash
-ext/com.cividesk.configmanager/bin/ce --write
-ext/com.cividesk.configmanager/bin/ce --type searchkit-saved-searches --write
-ext/com.cividesk.configmanager/bin/ci --dry-run
-ext/com.cividesk.configmanager/bin/ci --yes
-ext/com.cividesk.configmanager/bin/cdf
-ext/com.cividesk.configmanager/bin/cval
-ext/com.cividesk.configmanager/bin/civicfg ce --write
-ext/com.cividesk.configmanager/bin/civicfg ci --yes
+ext/civi.config.manager/bin/ce --write
+ext/civi.config.manager/bin/ce --type searchkit-saved-searches --write
+ext/civi.config.manager/bin/ci --dry-run
+ext/civi.config.manager/bin/ci --yes
+ext/civi.config.manager/bin/cdf
+ext/civi.config.manager/bin/cval
+ext/civi.config.manager/bin/civicfg ce --write
+ext/civi.config.manager/bin/civicfg ci --yes
 ```
 
 On install/enable, the extension attempts to create project-level wrappers in `<project-root>/bin` for `civicfg`, `cvcfg`, `config-export`, `ce`, `config-import`, `ci`, `config-diff`, `cdf`, `config-validate`, and `cval`. Existing non-managed files are never overwritten. The project-level wrappers check whether the extension is installed/enabled before delegating to the extension `bin/civicfg` script.
@@ -288,7 +288,7 @@ See `docs/ARCHITECTURE.md` for the implementation structure and `docs/IMPLEMENTA
 ## Alpha37 Notes
 
 - Added Config Ignore to skip selected YAML files from diff, validate, export, and import. This is useful for environment-specific configuration and for avoiding self-management of this extension.
-- `extensions/com.cividesk.configmanager.yml` is ignored by default. Exporting this extension's own status can create a circular dependency because the extension must stay enabled to finish imports.
+- `extensions/civi.config.manager.yml` is ignored by default. Exporting this extension's own status can create a circular dependency because the extension must stay enabled to finish imports.
 - SearchDisplay import now uses `saved_search_id.name + name` as the stable identity. This avoids duplicate `Table` display failures when a target site already has extension-provided SearchKit displays.
 - New SearchDisplay exports include the SavedSearch name in the filename to avoid collisions. Older display filenames are still read.
 - Already-existing records are treated as warnings when they can be matched safely instead of as hard errors.
@@ -308,12 +308,12 @@ See `docs/ARCHITECTURE.md` for the implementation structure and `docs/IMPLEMENTA
 The extension includes dedicated command wrappers in `bin/` for teams that prefer short commands over raw API4 calls. Run them from a bootstrapped CiviCRM project where `cv` is available. On install/enable, Configuration Manager also attempts to install project-level wrappers in `<project-root>/bin` so teams can run `civicfg`, `ce`, `ci`, `cdf`, and `cval` from the project without typing the extension path.
 
 ```bash
-ext/com.cividesk.configmanager/bin/config-export --write
-ext/com.cividesk.configmanager/bin/ce --type searchkit-saved-searches --write
-ext/com.cividesk.configmanager/bin/config-import --dry-run
-ext/com.cividesk.configmanager/bin/ci --yes
-ext/com.cividesk.configmanager/bin/config-diff
-ext/com.cividesk.configmanager/bin/config-validate
+ext/civi.config.manager/bin/config-export --write
+ext/civi.config.manager/bin/ce --type searchkit-saved-searches --write
+ext/civi.config.manager/bin/config-import --dry-run
+ext/civi.config.manager/bin/ci --yes
+ext/civi.config.manager/bin/config-diff
+ext/civi.config.manager/bin/config-validate
 ```
 
 The wrappers call the same API4 backend as the UI, so dependency expansion, Config Ignore, validation, and import safety rules are shared.
@@ -322,7 +322,7 @@ The wrappers call the same API4 backend as the UI, so dependency expansion, Conf
 
 Config Ignore accepts one relative YAML path or wildcard per line. Ignored files are skipped during diff, validate, export, import, single-file preview, and ZIP download. Do not ignore a YAML file that is a dependency of a non-ignored YAML file. Validation will show a dependency warning or error when it can detect this situation.
 
-`extensions/com.cividesk.configmanager.yml` is ignored by default to avoid self-management loops while the extension is running an import.
+`extensions/civi.config.manager.yml` is ignored by default to avoid self-management loops while the extension is running an import.
 
 ### Environment workflow
 
@@ -367,3 +367,10 @@ The safest target workflow is one site codebase moving configuration between its
 - Export adds reverse `required_by` metadata in addition to forward `dependencies`, so dependency review works both directions.
 - Project-level CLI wrappers are installed when possible without overwriting non-managed files, and they warn if the extension is disabled.
 - Button styling is normalized inside the Configuration Manager page for CiviCRM core/custom theme compatibility.
+
+## Alpha 45 Notes
+
+- The machine key is now `civi.config.manager`. The visible UI name remains `Configuration Manager`.
+- The Synchronize screen includes per-file Revert and Ignore actions. Revert makes the selected YAML match active CiviCRM. Ignore can save either a whole-file ignore rule or selected field-level ignore rules.
+- Extension-owned config filters are discovered dynamically from supported contributed/custom extension APIs. If an enabled extension exposes safe importable config entities, those entities can appear as separate filter/managed-type options.
+- Generic extension config export skips read-only/generated API entities that cannot be recreated or updated through API. This avoids broken cross-environment imports for provider-generated records.

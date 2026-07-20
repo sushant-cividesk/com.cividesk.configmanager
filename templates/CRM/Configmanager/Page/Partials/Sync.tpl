@@ -111,6 +111,16 @@
                 <span>{$file.change_count|escape} {ts}Field Change(s){/ts}</span>
                 <span class="civicfg-muted">{$file.type_label|escape}</span>
                 <button type="button" class="button civicfg-line-button" data-civicfg-open="{$file.id|escape}"><span>{ts}Diff{/ts}</span></button>
+                {if $canExport}
+                  <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Revert YAML File" data-civicfg-confirm-word="REVERT" data-civicfg-confirm-button="Revert" data-civicfg-confirm-message="This will make this YAML file match the active CiviCRM value. If the matching CiviCRM record no longer exists, the YAML file will be deleted." data-civicfg-confirm-warning="Review dependencies before reverting this one file: {$file.path|escape}.">
+                    <input type="hidden" name="_action" value="revert_file" />
+                    <input type="hidden" name="path" value="{$file.path|escape}" />
+                    <button type="submit" class="button civicfg-line-button"><span>{ts}Revert{/ts}</span></button>
+                  </form>
+                {/if}
+                {if $canAdminister}
+                  <button type="button" class="button civicfg-line-button" data-civicfg-open="{$file.id|escape}-ignore"><span>{ts}Ignore{/ts}</span></button>
+                {/if}
               </div>
             {/foreach}
           </div>

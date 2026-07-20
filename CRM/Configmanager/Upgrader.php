@@ -32,6 +32,12 @@ class CRM_Configmanager_Upgrader extends CRM_Extension_Upgrader_Base {
     return TRUE;
   }
 
+  public function upgrade_1045() {
+    $this->ctx->log->info('Applying Configuration Manager alpha45 lifecycle checks.');
+    $this->runLifecycle(TRUE, FALSE);
+    return TRUE;
+  }
+
   private function runLifecycle(bool $installCli, bool $removeCli): void {
     if (function_exists('_configmanager_lifecycle')) {
       _configmanager_lifecycle($installCli, $removeCli);

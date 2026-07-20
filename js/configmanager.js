@@ -55,6 +55,8 @@
       if (value.indexOf('import') === 0) { return ['Importing configuration', 'Applying YAML to CiviCRM. This may create, update, or delete supported records.']; }
       if (value.indexOf('export') === 0) { return ['Exporting configuration', 'Writing active CiviCRM configuration to YAML files.']; }
       if (value === 'validate_files') { return ['Validating configuration', 'Checking YAML files and dependency metadata.']; }
+      if (value === 'revert_file') { return ['Reverting YAML file', 'Making the selected YAML file match active CiviCRM.']; }
+      if (value === 'ignore_config') { return ['Saving ignore rule', 'Updating Config Ignore settings.']; }
       if (value === 'save_settings') { return ['Saving settings', 'Updating Configuration Manager settings.']; }
       return ['Working', 'Please wait. Do not refresh or leave this page.'];
     }

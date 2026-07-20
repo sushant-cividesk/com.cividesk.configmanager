@@ -1,8 +1,15 @@
 # Changelog
 
+## 0.1.0-alpha45-core
+
+- Renamed the extension machine key to `civi.config.manager` while keeping the public UI label as `Configuration Manager`. Legacy self-ignore rules for older keys remain in place so existing YAML does not create a self-management loop.
+- Added per-file `Revert` action on the Synchronize screen. Revert updates one YAML file from active CiviCRM, or deletes the YAML file if the matching CiviCRM record no longer exists.
+- Added per-file and field-level `Ignore` actions from the Synchronize screen. Ignore rules are confirmed and saved into the existing Config Ignore settings.
+- Added dynamic extension-owned config filter options so supported contrib/custom extension entities can appear under Filter Config Types and Managed Types when their provider extension exposes safe deployable config APIs.
+- Hardened generic extension config discovery so read-only/generated provider API entities are skipped unless create/update support is available. Known generated provider files such as Mosaico base templates are treated as stale YAML and removed by export instead of imported.
+
 ## 0.1.0-alpha44-core
 
-- Renamed the visible product label from Configuration Manager to Configuration Manager while keeping the existing extension machine key for upgrade safety.
 - Stopped exporting/importing MosaicoBaseTemplate records because they are generated from packaged extension assets and contain environment-specific URLs.
 - Existing legacy MosaicoBaseTemplate YAML files are now skipped with a warning during import and should be removed by running Export.
 - Hardened generic API3 extension-config discovery so read-only providers without create support are not treated as deployable config.
@@ -63,14 +70,14 @@
   - `bin/civicfg config-validate`
 - Improved Config Ignore behavior so ignored YAML files are hidden from diff, validate, import, export, single-file preview, and ZIP download.
 - Added clearer warnings when ignored files may hide dependencies needed by non-ignored YAML.
-- Filtered ignored DB-only diff entries, including the default self-ignore for `extensions/com.cividesk.configmanager.yml`.
+- Filtered ignored DB-only diff entries, including the default self-ignore for `extensions/civi.config.manager.yml`.
 - Documented that Configuration Manager is intended to work smoothly for the same site codebase across dev/stage/prod, while cross-site imports may still need careful review.
 
 
 ## 0.1.0-alpha37-core
 
 - Added Config Ignore settings for relative YAML paths/wildcards, similar to Drupal config ignore. Ignored files are skipped during diff, validate, export, and import.
-- Ignored `extensions/com.cividesk.configmanager.yml` by default to avoid self-management loops when Configuration Manager exports extension status.
+- Ignored `extensions/civi.config.manager.yml` by default to avoid self-management loops when Configuration Manager exports extension status.
 - Improved SearchDisplay import matching with composite identity `saved_search_id.name + name`, so extension-provided displays like `Table` can be matched instead of causing duplicate/already-exists failures.
 - SearchDisplay split exports now use `SavedSearch__Display.yml` filenames for new exports to avoid collisions where multiple searches have a display with the same name.
 - Downgraded already-exists create conflicts to warnings when the target record can be matched safely after the conflict.
@@ -131,7 +138,7 @@
 - Converted export, import, upload, and validate actions to post/redirect/get so browser refresh does not trigger form resubmission.
 - Updated current-behavior docs for destructive import safeguards, dependency handling, and filtered export behavior.
 
-All notable ZIP/test builds for `com.cividesk.configmanager` are tracked here. Other docs describe current behavior only and should reference this file instead of repeating release notes.
+All notable ZIP/test builds for `civi.config.manager` are tracked here. Other docs describe current behavior only and should reference this file instead of repeating release notes.
 
 ## 0.1.0-alpha30-core
 
@@ -211,7 +218,7 @@ All notable ZIP/test builds for `com.cividesk.configmanager` are tracked here. O
 
 ## 0.1.0-alpha21-core
 
-- Renamed the extension key from `org.cividesk.configmanager` to `com.cividesk.configmanager`.
+- Renamed the extension key from `org.cividesk.configmanager` to `civi.config.manager`.
 - Hardened Sync Directory locking when `civicfg_sync_dir` is defined in `civicrm.settings.php`; the UI now treats the value as code-owned and does not save UI changes to it.
 - Added Drupal-style import behavior for supported option-value removals.
 - Kept import conservative for unsupported config types and whole missing option-group files.

@@ -28,4 +28,38 @@
         </div>
       </div>
     </div>
+    {if $canAdminister}
+      <div class="civicfg-modal" id="{$file.id|escape}-ignore" aria-hidden="true" hidden="hidden">
+        <div class="civicfg-modal-box">
+          <div class="civicfg-modal-header">
+            <strong>{ts}Ignore configuration{/ts}: {$file.path|escape}</strong>
+            <button type="button" class="civicfg-close" data-civicfg-close="1" aria-label="{ts}Close{/ts}">×</button>
+          </div>
+          <div class="civicfg-modal-body">
+            <p class="description">{ts}Ignoring config hides it from diff, validate, export, import, ZIP download, and preview. Use this only for intentional environment-specific differences. Dependency or identity fields should normally not be ignored.{/ts}</p>
+            <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Confirm Config Ignore" data-civicfg-confirm-word="IGNORE" data-civicfg-confirm-button="Ignore" data-civicfg-confirm-message="This will save a Config Ignore rule in Configuration Manager settings." data-civicfg-confirm-warning="Ignored config will no longer appear in sync/import/export checks until the ignore rule is removed.">
+              <input type="hidden" name="_action" value="ignore_config" />
+              <input type="hidden" name="path" value="{$file.path|escape}" />
+              <div class="civicfg-ignore-choice">
+                <label><input type="radio" name="ignore_scope" value="file" checked="checked" /> {ts}Ignore the whole YAML file{/ts}</label>
+              </div>
+              {if $file.rows}
+                <div class="civicfg-ignore-choice">
+                  <label><input type="radio" name="ignore_scope" value="fields" /> {ts}Ignore only selected field(s){/ts}</label>
+                  <div class="civicfg-ignore-fields">
+                    {foreach from=$file.rows item=row}
+                      <label><input type="checkbox" name="value_path[]" value="{$row.path|escape}" /> {$row.label|escape} <code>{$row.path|escape}</code></label>
+                    {/foreach}
+                  </div>
+                </div>
+              {/if}
+              <div class="civicfg-actions">
+                <button type="submit" class="button"><span>{ts}Save Ignore Rule{/ts}</span></button>
+                <button type="button" class="button" data-civicfg-close="1"><span>{ts}Cancel{/ts}</span></button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {/if}
   {/foreach}

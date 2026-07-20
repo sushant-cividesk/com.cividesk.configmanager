@@ -162,13 +162,51 @@ class ConfigManager {
     if (!$enabled) {
       return $handlers;
     }
-    return array_values(array_filter($handlers, function($handler) use ($enabled) {
-      return in_array($handler->getType(), $enabled, TRUE);
+    $enabledBase = $this->baseTypesFromFilter($enabled);
+    return array_values(array_filter($handlers, function($handler) use ($enabledBase) {
+      return in_array($handler->getType(), $enabledBase, TRUE);
     }));
   }
 
   public function getAllHandlers(): array {
     return $this->registry->getHandlers();
+  }
+
+  public function getManagedTypeOptions(): array {
+    $rows = [];
+    foreach ($this->getAllHandlers() as $handler) {
+      $rows[] = [
+        'type' => $handler->getType(),
+        'base_type' => $handler->getType(),
+        'label' => $handler->getLabel(),
+        'directory' => $handler->getDirectory(),
+        'weight' => $handler->getWeight(),
+        'virtual' => FALSE,
+      ];
+      if (method_exists($handler, 'getFilterOptions')) {
+        foreach ((array) $handler->getFilterOptions() as $option) {
+          if (empty($option['type']) || empty($option['label'])) {
+            continue;
+          }
+          $rows[] = [
+            'type' => (string) $option['type'],
+            'base_type' => (string) ($option['base_type'] ?? $handler->getType()),
+            'label' => (string) $option['label'],
+            'directory' => (string) ($option['directory'] ?? $handler->getDirectory()),
+            'weight' => (int) ($option['weight'] ?? ($handler->getWeight() + 1)),
+            'virtual' => TRUE,
+          ];
+        }
+      }
+    }
+    usort($rows, function($a, $b) {
+      $cmp = ((int) ($a['weight'] ?? 0)) <=> ((int) ($b['weight'] ?? 0));
+      if ($cmp !== 0) {
+        return $cmp;
+      }
+      return strcmp((string) ($a['label'] ?? ''), (string) ($b['label'] ?? ''));
+    });
+    return $rows;
   }
 
   public function status(): array {
@@ -206,7 +244,7 @@ class ConfigManager {
     }
 
     $expanded = [];
-    foreach ($requested as $type) {
+    foreach ($this->baseTypesFromFilter($requested) as $type) {
       if (isset($available[$type])) {
         $expanded[$type] = TRUE;
       }
@@ -243,11 +281,38 @@ class ConfigManager {
     }
 
     $valid = [];
-    foreach ($this->getHandlers() as $handler) {
-      $valid[$handler->getType()] = TRUE;
+    foreach ($this->getManagedTypeOptions() as $row) {
+      $valid[(string) $row['type']] = TRUE;
     }
 
     return array_values(array_filter($typeFilter, fn($type) => isset($valid[$type])));
+  }
+
+  private function baseTypesFromFilter(array $typeFilter): array {
+    $base = [];
+    $map = [];
+    foreach ($this->getManagedTypeOptions() as $row) {
+      $map[(string) $row['type']] = (string) ($row['base_type'] ?? $row['type']);
+    }
+    foreach (array_values(array_unique(array_filter(array_map('strval', $typeFilter)))) as $type) {
+      if (isset($map[$type])) {
+        $base[$map[$type]] = TRUE;
+      }
+    }
+    return array_keys($base);
+  }
+
+  private function prepareHandlerForTypeFilter($handler, array $typeFilter): void {
+    if (method_exists($handler, 'setRuntimeTypeFilters')) {
+      $handler->setRuntimeTypeFilters($typeFilter);
+    }
+  }
+
+  private function applyHandlerFileFilter($handler, array $files): array {
+    if (method_exists($handler, 'filterYamlFilesByRuntimeFilters')) {
+      return $handler->filterYamlFilesByRuntimeFilters($files);
+    }
+    return $files;
   }
 
   private function getExportRelatedTypeMap(): array {
@@ -308,6 +373,7 @@ class ConfigManager {
       if ($effectiveTypes && !in_array($handler->getType(), $effectiveTypes, TRUE)) {
         continue;
       }
+      $this->prepareHandlerForTypeFilter($handler, $requestedTypes);
       try {
         foreach ($handler->export() as $file) {
           $relative = trim($handler->getDirectory(), '/') . '/' . $file['filename'];
@@ -394,6 +460,7 @@ class ConfigManager {
     foreach ($handlers as $handler) {
       $directory = trim((string) $handler->getDirectory(), '/');
       $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+      $files = $this->applyHandlerFileFilter($handler, $files);
       $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
       $exported = $exportedByType[$handler->getType()] ?? [];
       $diff = $handler->diffFromExports($exported, $files);
@@ -480,11 +547,15 @@ class ConfigManager {
     $storage = new YamlFileStorage($this->getSyncDir());
     $result = ['ok' => TRUE, 'sync_dir' => $storage->getRoot(), 'items' => [], 'errors' => []];
     foreach ($this->getHandlers() as $handler) {
-      if ($typeFilter && !in_array($handler->getType(), $typeFilter, TRUE)) {
+      $normalisedFilter = $this->normaliseTypeFilter($typeFilter);
+      $baseFilter = $this->baseTypesFromFilter($normalisedFilter);
+      if ($baseFilter && !in_array($handler->getType(), $baseFilter, TRUE)) {
         continue;
       }
+      $this->prepareHandlerForTypeFilter($handler, $normalisedFilter);
       try {
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+        $files = $this->applyHandlerFileFilter($handler, $files);
         $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
         $exported = $this->filterIgnoredValuesInExportFiles($handler->getDirectory(), $handler->export());
         $item = $this->filterIgnoredDiffItem($handler->diffFromExports($exported, $files), $handler->getDirectory());
@@ -505,11 +576,15 @@ class ConfigManager {
     $result = ['ok' => TRUE, 'sync_dir' => $storage->getRoot(), 'items' => [], 'errors' => []];
     $yamlByType = [];
     foreach ($this->getHandlers() as $handler) {
-      if ($typeFilter && !in_array($handler->getType(), $typeFilter, TRUE)) {
+      $normalisedFilter = $this->normaliseTypeFilter($typeFilter);
+      $baseFilter = $this->baseTypesFromFilter($normalisedFilter);
+      if ($baseFilter && !in_array($handler->getType(), $baseFilter, TRUE)) {
         continue;
       }
+      $this->prepareHandlerForTypeFilter($handler, $normalisedFilter);
       try {
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+        $files = $this->applyHandlerFileFilter($handler, $files);
         $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
         $yamlByType[$handler->getType()] = $files;
         $validation = $handler->validate($files);
@@ -703,8 +778,9 @@ class ConfigManager {
 
   public function import(bool $dryRun = TRUE, bool $yes = FALSE, array $typeFilter = []): array {
     $storage = new YamlFileStorage($this->getSyncDir());
-    $effectiveTypes = $this->getEffectiveExportTypeFilter($typeFilter);
-    $validation = $this->validate($effectiveTypes);
+    $requestedTypes = $this->normaliseTypeFilter($typeFilter);
+    $effectiveTypes = $this->getEffectiveExportTypeFilter($requestedTypes);
+    $validation = $this->validate($requestedTypes);
     if (!$validation['ok']) {
       return [
         'ok' => FALSE,
@@ -719,6 +795,7 @@ class ConfigManager {
       if ($effectiveTypes && !in_array($handler->getType(), $effectiveTypes, TRUE)) {
         continue;
       }
+      $this->prepareHandlerForTypeFilter($handler, $requestedTypes);
       $handlers[] = $handler;
     }
 
@@ -729,6 +806,7 @@ class ConfigManager {
       foreach ($handlers as $handler) {
         $this->setHandlerImportPhase($handler, TRUE, FALSE);
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+        $files = $this->applyHandlerFileFilter($handler, $files);
         $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
         $item = $handler->import($files, FALSE);
         $item['phase'] = 'create_update';
@@ -740,6 +818,7 @@ class ConfigManager {
       foreach (array_reverse($handlers) as $handler) {
         $this->setHandlerImportPhase($handler, FALSE, TRUE);
         $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+        $files = $this->applyHandlerFileFilter($handler, $files);
         $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
         $item = $handler->import($files, FALSE);
         $item['phase'] = 'delete_missing';
@@ -756,6 +835,7 @@ class ConfigManager {
     foreach ($handlers as $handler) {
       $this->setHandlerImportPhase($handler, TRUE, TRUE);
       $files = $this->filterIgnoredFiles($handler->getDirectory(), $storage->readDirectory($handler->getDirectory()));
+      $files = $this->applyHandlerFileFilter($handler, $files);
       $files = $this->filterIgnoredValuesInFiles($handler->getDirectory(), $files);
       $item = $handler->import($files, $dryRun || !$yes);
       $result['items'][] = $item;
@@ -1046,6 +1126,85 @@ class ConfigManager {
       }
     }
     return array_values(array_unique($warnings));
+  }
+
+
+  public function revertYamlFromCivi(string $relativePath): array {
+    $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
+    if ($relativePath === '' || $this->isIgnoredPath($relativePath)) {
+      throw new \RuntimeException('Cannot revert an empty or ignored YAML path.');
+    }
+    $storage = new YamlFileStorage($this->getSyncDir());
+    foreach ($this->getAllHandlers() as $handler) {
+      $directory = trim((string) $handler->getDirectory(), '/');
+      $prefix = $directory === '' ? '' : $directory . '/';
+      if ($directory !== '' && strpos($relativePath, $prefix) !== 0) {
+        continue;
+      }
+      $filename = $directory === '' ? $relativePath : substr($relativePath, strlen($prefix));
+      if ($filename === '' || strpos($filename, '..') !== FALSE) {
+        throw new \RuntimeException('Invalid YAML path for revert.');
+      }
+      foreach ($handler->export() as $file) {
+        if ((string) ($file['filename'] ?? '') === $filename) {
+          $data = (array) ($file['data'] ?? []);
+          if ($storage->isSame($handler->getDirectory(), $filename, $data)) {
+            return ['ok' => TRUE, 'action' => 'skipped', 'path' => $relativePath, 'message' => 'YAML already matches active CiviCRM for this file.'];
+          }
+          $written = $storage->write($handler->getDirectory(), $filename, $data);
+          return ['ok' => TRUE, 'action' => 'written', 'path' => $written, 'message' => 'YAML file was reverted to the active CiviCRM value.'];
+        }
+      }
+      if ($storage->exists($handler->getDirectory(), $filename)) {
+        $deleted = $storage->delete($handler->getDirectory(), $filename);
+        return ['ok' => TRUE, 'action' => 'deleted', 'path' => $deleted, 'message' => 'YAML file was removed because the matching CiviCRM record no longer exists.'];
+      }
+      throw new \RuntimeException('No active CiviCRM export or YAML file was found for: ' . $relativePath);
+    }
+    throw new \RuntimeException('No managed handler owns YAML path: ' . $relativePath);
+  }
+
+  public function addIgnorePathRule(string $relativePath): array {
+    $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
+    if ($relativePath === '' || strpos($relativePath, '..') !== FALSE) {
+      throw new \RuntimeException('Invalid ignore path.');
+    }
+    $patterns = (array) \Civi::settings()->get('civicfg_ignore_paths');
+    $patterns = array_values(array_unique(array_filter(array_map(function($value) {
+      return trim(str_replace('\\', '/', (string) $value), '/');
+    }, $patterns))));
+    if (!in_array($relativePath, $patterns, TRUE)) {
+      $patterns[] = $relativePath;
+      sort($patterns, SORT_NATURAL | SORT_FLAG_CASE);
+      \Civi::settings()->set('civicfg_ignore_paths', $patterns);
+    }
+    return $patterns;
+  }
+
+  public function addIgnoreValueRules(string $relativePath, array $valuePaths): array {
+    $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
+    if ($relativePath === '' || strpos($relativePath, '..') !== FALSE) {
+      throw new \RuntimeException('Invalid ignore path.');
+    }
+    $existing = (array) \Civi::settings()->get('civicfg_ignore_values');
+    $rules = [];
+    foreach ($existing as $rule) {
+      $rule = trim(str_replace('\\', '/', (string) $rule));
+      if ($rule !== '') {
+        $rules[$rule] = TRUE;
+      }
+    }
+    foreach ($valuePaths as $valuePath) {
+      $valuePath = trim((string) $valuePath);
+      if ($valuePath === '' || strpos($valuePath, '..') !== FALSE) {
+        continue;
+      }
+      $rules[$relativePath . ':' . $valuePath] = TRUE;
+    }
+    $values = array_keys($rules);
+    sort($values, SORT_NATURAL | SORT_FLAG_CASE);
+    \Civi::settings()->set('civicfg_ignore_values', $values);
+    return $values;
   }
 
 

@@ -4,7 +4,7 @@ This document records current implementation decisions and remaining work. Versi
 
 ## Locked decisions
 
-- Extension key: `com.cividesk.configmanager`
+- Extension key: `civi.config.manager`
 - UI name: `Configuration Manager`
 - File format: YAML
 - Default sync directory: `civicrm-config`

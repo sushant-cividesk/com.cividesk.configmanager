@@ -7,6 +7,7 @@ class ExtensionHandler extends AbstractHandler {
   private bool $importWritesEnabled = TRUE;
   private bool $deleteMissingEnabled = TRUE;
   private ?array $discoveredEntityDefinitions = NULL;
+  private array $runtimeTypeFilters = [];
 
   public function getType(): string { return 'extensions'; }
   public function getLabel(): string { return 'Extensions'; }
@@ -23,6 +24,42 @@ class ExtensionHandler extends AbstractHandler {
     return $this;
   }
 
+  public function setRuntimeTypeFilters(array $filters): self {
+    $this->runtimeTypeFilters = array_values(array_unique(array_filter(array_map('strval', $filters))));
+    return $this;
+  }
+
+  public function getFilterOptions(): array {
+    $rows = [];
+    foreach ($this->discoverEntityDefinitions() as $definition) {
+      if ($this->isGenericConfigSkippedExtension((string) $definition['extension']) || $this->isNonImportableDefinition($definition)) {
+        continue;
+      }
+      $rows[] = [
+        'type' => $this->virtualTypeForDefinition($definition),
+        'base_type' => $this->getType(),
+        'label' => $this->labelForDefinition($definition),
+        'directory' => $this->getDirectory(),
+        'weight' => $this->getWeight() + 1,
+      ];
+    }
+    return $rows;
+  }
+
+  public function filterYamlFilesByRuntimeFilters(array $files): array {
+    if (!$this->hasRuntimeSubtypeFilter()) {
+      return $files;
+    }
+    $filtered = [];
+    foreach ($files as $filename => $data) {
+      $filename = (string) $filename;
+      if ($this->yamlFilenameMatchesRuntimeFilter($filename, (array) $data)) {
+        $filtered[$filename] = $data;
+      }
+    }
+    return $filtered;
+  }
+
   public function export(): array {
     $manager = \CRM_Extension_System::singleton()->getManager();
     $settingsByExtension = $this->discoverSettingsByExtension();
@@ -31,6 +68,9 @@ class ExtensionHandler extends AbstractHandler {
     $files = [];
     foreach ($manager->getStatuses() as $key => $status) {
       $key = (string) $key;
+      if (!$this->extensionMatchesRuntimeFilter($key)) {
+        continue;
+      }
       $data = [
         'schema_version' => 1,
         'type' => 'extension.item',
@@ -439,6 +479,10 @@ class ExtensionHandler extends AbstractHandler {
   private function processExtensionConfigEntry(string $filename, string $extensionKey, array $configEntry, array $definitions, array &$desiredConfigKeys, bool $dryRun, array &$summary): void {
     $api = (string) ($configEntry['api'] ?? '');
     $entity = (string) ($configEntry['entity'] ?? '');
+    if (!$this->extensionConfigMatchesRuntimeFilter($extensionKey, $api, $entity)) {
+      $summary['config']['skip']++;
+      return;
+    }
     $definitionKey = $this->definitionKey($extensionKey, $api, $entity);
     if (!isset($definitions[$definitionKey])) {
       if ($this->isNonImportableLegacyExtensionConfig($extensionKey, $api, $entity)) {
@@ -565,6 +609,9 @@ class ExtensionHandler extends AbstractHandler {
     foreach ($this->discoverEntityDefinitions() as $definition) {
       $extensionKey = (string) $definition['extension'];
       if ($this->isGenericConfigSkippedExtension($extensionKey) || $this->isNonImportableDefinition($definition)) {
+        continue;
+      }
+      if (!$this->definitionMatchesRuntimeFilter($definition)) {
         continue;
       }
       $usedNames = [];
@@ -783,6 +830,9 @@ class ExtensionHandler extends AbstractHandler {
         'entity' => $entity,
         'class' => $class,
         'fields' => $this->api4Fields($entity),
+        'can_create' => is_callable([$class, 'create']),
+        'can_update' => is_callable([$class, 'update']),
+        'can_delete' => is_callable([$class, 'delete']),
       ];
     }
     return $definitions;
@@ -857,10 +907,10 @@ class ExtensionHandler extends AbstractHandler {
       return in_array(strtolower($action), array_values(array_unique($values)), TRUE);
     }
     catch (\Throwable $e) {
-      // Older API3 providers may not expose getactions consistently. Keep the
-      // entity discoverable unless we can prove the action is absent; explicit
-      // read-only/generated entities are filtered separately.
-      return TRUE;
+      // Generic extension config must be deployable, so require an explicit
+      // action list. Providers without create/update support are treated as
+      // read-only and skipped instead of producing broken import YAML.
+      return FALSE;
     }
   }
 
@@ -1103,21 +1153,40 @@ class ExtensionHandler extends AbstractHandler {
   }
 
   private function isNonImportableDefinition(array $definition): bool {
-    return $this->isNonImportableLegacyExtensionConfig(
+    if ($this->isNonImportableLegacyExtensionConfig(
       (string) ($definition['extension'] ?? ''),
       (string) ($definition['api'] ?? ''),
       (string) ($definition['entity'] ?? '')
-    );
+    )) {
+      return TRUE;
+    }
+    foreach (['can_create', 'can_update'] as $flag) {
+      if (array_key_exists($flag, $definition) && empty($definition[$flag])) {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
   private function isNonImportableLegacyExtensionConfig(string $extensionKey, string $api, string $entity): bool {
     $entityLower = strtolower($entity);
     $extensionLower = strtolower($extensionKey);
 
-    // Mosaico base templates are generated from packaged template files and
-    // include environment-specific URLs. The API supports reading them but not
-    // reliable create/update import, so they must not be managed as deployable
-    // YAML. User-created MosaicoTemplate records remain managed separately.
+    // Some extension API entities are generated/read-only views over packaged
+    // files or runtime state. They are useful to read, but not safe deployable
+    // YAML unless the provider explicitly supports create/update.
+    if ($api === 'api3' && $this->api3EntityUsable($entity) && !$this->api3EntityHasAction($entity, 'create')) {
+      return TRUE;
+    }
+    if ($api === 'api4') {
+      $class = 'Civi\\Api4\\' . $entity;
+      if (class_exists($class) && (!is_callable([$class, 'create']) || !is_callable([$class, 'update']))) {
+        return TRUE;
+      }
+    }
+
+    // Known generated-provider fallback. This stays as a safety belt for older
+    // Mosaico builds where API3 action discovery may be incomplete.
     if ($extensionLower === 'uk.co.vedaconsulting.mosaico' && $entityLower === 'mosaicobasetemplate') {
       return TRUE;
     }
@@ -1138,6 +1207,88 @@ class ExtensionHandler extends AbstractHandler {
       'org.civicrm.search_kit',
       'org.civicrm.flexmailer',
     ], TRUE);
+  }
+
+
+  private function hasRuntimeSubtypeFilter(): bool {
+    foreach ($this->runtimeTypeFilters as $filter) {
+      if (strpos($filter, 'extensions:') === 0) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  private function virtualTypeForDefinition(array $definition): string {
+    return 'extensions:' . $this->safeName((string) $definition['extension']) . ':' . $this->safeName((string) $definition['api']) . ':' . $this->safeName((string) $definition['entity']);
+  }
+
+  private function labelForDefinition(array $definition): string {
+    $entity = preg_replace('/(?<!^)[A-Z]/', ' $0', (string) $definition['entity']);
+    $entity = trim((string) $entity) ?: (string) $definition['entity'];
+    return sprintf('%s: %s', $entity, (string) $definition['extension']);
+  }
+
+  private function definitionMatchesRuntimeFilter(array $definition): bool {
+    if (!$this->hasRuntimeSubtypeFilter()) {
+      return TRUE;
+    }
+    $wanted = array_fill_keys($this->runtimeTypeFilters, TRUE);
+    return isset($wanted[$this->virtualTypeForDefinition($definition)]);
+  }
+
+  private function extensionConfigMatchesRuntimeFilter(string $extensionKey, string $api, string $entity): bool {
+    if (!$this->hasRuntimeSubtypeFilter()) {
+      return TRUE;
+    }
+    $definition = ['extension' => $extensionKey, 'api' => $api, 'entity' => $entity];
+    return $this->definitionMatchesRuntimeFilter($definition);
+  }
+
+  private function extensionMatchesRuntimeFilter(string $extensionKey): bool {
+    if (!$this->hasRuntimeSubtypeFilter()) {
+      return TRUE;
+    }
+    $safeExtension = $this->safeName($extensionKey);
+    foreach ($this->runtimeTypeFilters as $filter) {
+      if (strpos($filter, 'extensions:' . $safeExtension . ':') === 0) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  private function yamlFilenameMatchesRuntimeFilter(string $filename, array $data): bool {
+    if (!$this->hasRuntimeSubtypeFilter()) {
+      return TRUE;
+    }
+    $extensionKey = '';
+    $api = '';
+    $entity = '';
+    if (($data['type'] ?? '') === 'extension_config.item') {
+      $extensionKey = (string) ($data['extension'] ?? '');
+      $api = (string) ($data['api'] ?? '');
+      $entity = (string) ($data['entity'] ?? '');
+      return $this->extensionConfigMatchesRuntimeFilter($extensionKey, $api, $entity);
+    }
+    if (($data['type'] ?? '') === 'extension.item') {
+      $extension = (array) ($data['extension'] ?? []);
+      $extensionKey = (string) ($extension['key'] ?? ($data['key'] ?? ''));
+      return $this->extensionMatchesRuntimeFilter($extensionKey);
+    }
+    foreach ($this->runtimeTypeFilters as $filter) {
+      $parts = explode(':', $filter);
+      if (count($parts) === 4) {
+        $prefix = $parts[1] . '/' . $parts[2] . '/' . $parts[3] . '/';
+        if (strpos($filename, $prefix) === 0) {
+          return TRUE;
+        }
+        if ($filename === $parts[1] . '.yml') {
+          return TRUE;
+        }
+      }
+    }
+    return FALSE;
   }
 
   private function isSafeSettingName(string $name): bool {

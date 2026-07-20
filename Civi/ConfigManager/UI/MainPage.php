@@ -86,6 +86,27 @@ class MainPage {
         }
         \CRM_Utils_System::redirect(\CRM_Utils_System::url('civicrm/admin/config-manager', 'reset=1&op=settings'));
       }
+      elseif ($postAction === 'revert_file') {
+        $path = trim((string) ($_POST['path'] ?? ''));
+        $result = $this->manager->revertYamlFromCivi($path);
+        $this->redirectWithNotice((string) ($result['message'] ?? ts('YAML file reverted.')), 'sync', 'success');
+      }
+      elseif ($postAction === 'ignore_config') {
+        $path = trim((string) ($_POST['path'] ?? ''));
+        $scope = (string) ($_POST['ignore_scope'] ?? 'file');
+        if ($scope === 'fields') {
+          $fields = $_POST['value_path'] ?? [];
+          if (!is_array($fields) || !$fields) {
+            throw new RuntimeException('Select at least one field to ignore, or choose whole file.');
+          }
+          $this->manager->addIgnoreValueRules($path, array_map('strval', $fields));
+          $this->redirectWithNotice(ts('Field-level ignore rule(s) saved for %1.', [1 => $path]), 'sync', 'warning');
+        }
+        else {
+          $this->manager->addIgnorePathRule($path);
+          $this->redirectWithNotice(ts('Config ignore rule saved for %1.', [1 => $path]), 'sync', 'warning');
+        }
+      }
       elseif ($postAction === 'export_write') {
         $requestedTypes = $types;
         $exportResult = $this->manager->export(FALSE, $requestedTypes);
@@ -271,8 +292,8 @@ class MainPage {
       $enabled = [];
     }
     $valid = [];
-    foreach ($this->manager->getAllHandlers() as $handler) {
-      $valid[] = $handler->getType();
+    foreach ($this->manager->getManagedTypeOptions() as $row) {
+      $valid[] = (string) $row['type'];
     }
     $enabled = array_values(array_intersect($valid, array_map('strval', $enabled)));
     \Civi::settings()->set('civicfg_enabled_types', $enabled);

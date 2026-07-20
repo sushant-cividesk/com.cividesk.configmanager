@@ -1,6 +1,6 @@
 <?php
 /**
- * Configuration Manager (com.cividesk.configmanager).
+ * Configuration Manager (civi.config.manager).
  */
 
 if (!defined('CIVICRM_UF')) {

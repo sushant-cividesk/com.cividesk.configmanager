@@ -171,4 +171,4 @@ Option group value validation allows CiviCRM core data where option value names 
 
 ## Config ignore
 
-`civicfg_ignore_paths` stores relative YAML paths or simple wildcard patterns that are skipped by diff, validate, export, and import. The service also ignores `extensions/com.cividesk.configmanager.yml` by default to avoid self-management loops while the extension is running imports.
+`civicfg_ignore_paths` stores relative YAML paths or simple wildcard patterns that are skipped by diff, validate, export, and import. The service also ignores `extensions/civi.config.manager.yml` by default to avoid self-management loops while the extension is running imports.
