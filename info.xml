@@ -9,7 +9,7 @@
     <email>sushant@cividesk.com</email>
   </maintainer>
   <releaseDate>2026-07-06</releaseDate>
-  <version>0.1.0-alpha45-core</version>
+  <version>0.1.0-alpha46-core</version>
   <develStage>alpha</develStage>
   <compatibility>
     <ver>5.0</ver>
@@ -18,5 +18,5 @@
   <mixins>
     <mixin>scan-classes@1.0.0</mixin>
   </mixins>
-  <comments>Alpha core build: renamed extension key, adds per-file revert/ignore actions, and improves generic extension config filtering.</comments>
+  <comments>Alpha core build: fixes per-file revert-to-YAML, improves managed type UI, and tracks menu bar settings.</comments>
 </extension>

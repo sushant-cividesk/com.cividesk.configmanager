@@ -88,8 +88,8 @@ class MainPage {
       }
       elseif ($postAction === 'revert_file') {
         $path = trim((string) ($_POST['path'] ?? ''));
-        $result = $this->manager->revertYamlFromCivi($path);
-        $this->redirectWithNotice((string) ($result['message'] ?? ts('YAML file reverted.')), 'sync', 'success');
+        $result = $this->manager->revertCiviFromYaml($path);
+        $this->redirectWithNotice((string) ($result['message'] ?? ts('Active CiviCRM was reverted from YAML.')), 'sync', empty($result['ok']) ? 'error' : 'success');
       }
       elseif ($postAction === 'ignore_config') {
         $path = trim((string) ($_POST['path'] ?? ''));
@@ -341,6 +341,12 @@ class MainPage {
     $allTypes = $this->presenter->buildTypeRows($this->manager, $diffResult);
     $enabledTypes = (array) \Civi::settings()->get('civicfg_enabled_types');
     $settingsAllowlist = (array) \Civi::settings()->get('civicfg_settings_allowlist');
+    foreach (['menubar_color', 'menubar_position'] as $recommendedSetting) {
+      if (!in_array($recommendedSetting, $settingsAllowlist, TRUE)) {
+        $settingsAllowlist[] = $recommendedSetting;
+      }
+    }
+    sort($settingsAllowlist, SORT_NATURAL | SORT_FLAG_CASE);
     $ignorePaths = $this->manager->getIgnorePatterns();
     $ignoreValues = $this->manager->getIgnoreValuePatterns();
     $siteId = $this->manager->getSiteIdentifier();

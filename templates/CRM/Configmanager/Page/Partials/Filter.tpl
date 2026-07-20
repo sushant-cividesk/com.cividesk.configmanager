@@ -14,7 +14,7 @@
           {/if}
           <div class="civicfg-checkbox-grid">
             {foreach from=$allTypes item=row}
-              <label><input type="checkbox" name="type[]" value="{$row.type|escape}" {if $selectedTypesMap[$row.type]}checked="checked"{/if} /> {$row.label|escape}</label>
+              <label class="civicfg-type-option{if $row.virtual} civicfg-type-option-virtual{/if}"><input type="checkbox" name="type[]" value="{$row.type|escape}" {if $selectedTypesMap[$row.type]}checked="checked"{/if} /> <span class="civicfg-type-text"><span class="civicfg-type-name">{$row.label|escape}</span>{if $row.provider}<small>{$row.provider|escape}</small>{/if}</span></label>
             {/foreach}
           </div>
           <div class="civicfg-actions">

@@ -169,3 +169,44 @@
 .crm-configmanager-block .civicfg-ignore-choice {margin: .75rem 0; padding: .5rem; border: 1px solid #d7dce2; border-radius: 3px; background: #fafafa;}
 .crm-configmanager-block .civicfg-ignore-fields {display: grid; gap: .35rem; margin: .5rem 0 0 1.4rem;}
 .crm-configmanager-block .civicfg-ignore-fields code {margin-left: .35rem;}
+
+/* Cleaner managed-type selector layout. */
+.crm-configmanager-block .civicfg-checkbox-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: .5rem .75rem;
+}
+.crm-configmanager-block .civicfg-checkbox-grid .civicfg-type-option {
+  display: grid;
+  grid-template-columns: 1.2rem minmax(0, 1fr);
+  align-items: start;
+  gap: .35rem;
+  padding: .35rem .45rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.crm-configmanager-block .civicfg-checkbox-grid .civicfg-type-option:hover {
+  background: var(--crm-c-page-background, #fff);
+  border-color: #d7dce2;
+}
+.crm-configmanager-block .civicfg-type-text {
+  display: grid;
+  gap: .12rem;
+  min-width: 0;
+}
+.crm-configmanager-block .civicfg-type-name {
+  font-weight: 600;
+}
+.crm-configmanager-block .civicfg-type-text small {
+  color: #5f6b7a;
+  font-size: .82rem;
+  font-family: Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+.crm-configmanager-block .civicfg-type-option-virtual .civicfg-type-name::after {
+  content: ' config';
+  color: #5f6b7a;
+  font-weight: 400;
+  font-size: .82rem;
+}

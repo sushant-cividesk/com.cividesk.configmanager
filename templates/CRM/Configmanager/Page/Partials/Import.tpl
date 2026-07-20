@@ -25,7 +25,7 @@
                 <h4><code class="civicfg-file-code">{$item.path|escape}</code></h4>
                 <div class="civicfg-change-meta">
                   <span class="civicfg-badge {if !$item.importable}warn{elseif $item.status eq 'new_in_db'}bad{else}good{/if}">{if $item.importable}{$item.action|escape}{else}{ts}Not Ready{/ts}{/if}</span>
-                  <span>{$item.change_count|escape} {ts}Field Change(s){/ts}</span>
+                  <span>{$item.change_count|escape} {if $item.status eq 'changed'}{ts}Changed Field(s){/ts}{elseif $item.status eq 'new_in_db'}{ts}Added Field(s){/ts}{else}{ts}YAML Field(s){/ts}{/if}</span>
                   <span class="civicfg-muted">{$item.type_label|escape}</span>
                 </div>
                 {if $item.note}<div class="messages warning no-popup">{$item.note|escape}</div>{/if}

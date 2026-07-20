@@ -39,6 +39,7 @@ class ExtensionHandler extends AbstractHandler {
         'type' => $this->virtualTypeForDefinition($definition),
         'base_type' => $this->getType(),
         'label' => $this->labelForDefinition($definition),
+        'provider' => (string) $definition['extension'],
         'directory' => $this->getDirectory(),
         'weight' => $this->getWeight() + 1,
       ];
@@ -1226,7 +1227,7 @@ class ExtensionHandler extends AbstractHandler {
   private function labelForDefinition(array $definition): string {
     $entity = preg_replace('/(?<!^)[A-Z]/', ' $0', (string) $definition['entity']);
     $entity = trim((string) $entity) ?: (string) $definition['entity'];
-    return sprintf('%s: %s', $entity, (string) $definition['extension']);
+    return $entity;
   }
 
   private function definitionMatchesRuntimeFilter(array $definition): bool {

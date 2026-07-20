@@ -90,8 +90,8 @@
                   <strong>{$row.label|escape}</strong>
                   <code>{$row.type|escape}</code>
                   {if $row.changedCount gt 0}<span class="civicfg-badge warn">{$row.changedCount|escape} {ts}Changed{/ts}</span>{/if}
-                  {if $row.newCount gt 0}<span class="civicfg-badge warn">{$row.newCount|escape} {ts}In CiviCRM{/ts}</span>{/if}
-                  {if $row.missingCount gt 0}<span class="civicfg-badge warn">{$row.missingCount|escape} {ts}In YAML{/ts}</span>{/if}
+                  {if $row.newCount gt 0}<span class="civicfg-badge warn">{$row.newCount|escape} {ts}Added in CiviCRM{/ts}</span>{/if}
+                  {if $row.missingCount gt 0}<span class="civicfg-badge warn">{$row.missingCount|escape} {ts}Added in YAML{/ts}</span>{/if}
                 </div>
               {/if}
             {/foreach}
@@ -100,22 +100,22 @@
       </details>
 
       <details class="civicfg-panel civicfg-files-panel" open="open">
-        <summary>{ts}Changed Files{/ts}</summary>
+        <summary>{ts}Changed / Added / Removed Files{/ts}</summary>
         <div class="civicfg-panel-body">
-          <p class="description">{ts}Only files with differences are listed. Open Diff to review the changed fields before exporting or importing.{/ts}</p>
+          <p class="description">{ts}Only files with differences are listed. Open Diff to review changed, added, or removed fields before exporting, importing, reverting, or ignoring.{/ts}</p>
           <div class="civicfg-file-lines">
             {foreach from=$diffFiles item=file}
               <div class="civicfg-file-line">
                 <code class="civicfg-file-code">{$file.path|escape}</code>
                 <span class="civicfg-badge warn">{$file.status_label|escape}</span>
-                <span>{$file.change_count|escape} {ts}Field Change(s){/ts}</span>
+                <span>{$file.change_count|escape} {if $file.status eq 'changed'}{ts}Changed Field(s){/ts}{elseif $file.status eq 'new_in_db'}{ts}Added Field(s){/ts}{else}{ts}YAML Field(s){/ts}{/if}</span>
                 <span class="civicfg-muted">{$file.type_label|escape}</span>
                 <button type="button" class="button civicfg-line-button" data-civicfg-open="{$file.id|escape}"><span>{ts}Diff{/ts}</span></button>
-                {if $canExport}
-                  <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Revert YAML File" data-civicfg-confirm-word="REVERT" data-civicfg-confirm-button="Revert" data-civicfg-confirm-message="This will make this YAML file match the active CiviCRM value. If the matching CiviCRM record no longer exists, the YAML file will be deleted." data-civicfg-confirm-warning="Review dependencies before reverting this one file: {$file.path|escape}.">
+                {if $canImport}
+                  <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Revert Active CiviCRM From YAML" data-civicfg-confirm-word="REVERT" data-civicfg-confirm-button="Revert" data-civicfg-confirm-message="This will apply this YAML file back to active CiviCRM. If the YAML file has dependencies, those dependency YAML files are applied with it. If the YAML file does not exist, the matching CiviCRM record is removed when the handler supports deletion." data-civicfg-confirm-warning="Only the selected file and its dependency closure are reverted: {$file.path|escape}.">
                     <input type="hidden" name="_action" value="revert_file" />
                     <input type="hidden" name="path" value="{$file.path|escape}" />
-                    <button type="submit" class="button civicfg-line-button"><span>{ts}Revert{/ts}</span></button>
+                    <button type="submit" class="button civicfg-line-button"><span>{ts}Revert CiviCRM{/ts}</span></button>
                   </form>
                 {/if}
                 {if $canAdminister}

@@ -27,7 +27,7 @@
       <div class="civicfg-card-label">{ts}Status{/ts}</div>
       <div class="civicfg-card-value">
         {if $summary.total_changes gt 0}
-          <span class="civicfg-badge warn">{ts 1=$summary.total_changes}%1 Change(s){/ts}</span>
+          <span class="civicfg-badge warn">{ts 1=$summary.total_changes}%1 Difference(s){/ts}</span>
         {else}
           <span class="civicfg-badge good">{ts}In Sync{/ts}</span>
         {/if}
@@ -36,8 +36,8 @@
     <div class="civicfg-card">
       <div class="civicfg-card-label">{ts}Changes{/ts}</div>
       <div>{ts}Changed{/ts}: {$summary.changed_count|escape}</div>
-      <div>{ts}In CiviCRM{/ts}: {$summary.new_count|escape}</div>
-      <div>{ts}In YAML{/ts}: {$summary.missing_count|escape}</div>
+      <div>{ts}Added in CiviCRM{/ts}: {$summary.new_count|escape}</div>
+      <div>{ts}Added in YAML{/ts}: {$summary.missing_count|escape}</div>
     </div>
     <div class="civicfg-card">
       <div class="civicfg-card-label">{ts}Sync Directory{/ts}</div>

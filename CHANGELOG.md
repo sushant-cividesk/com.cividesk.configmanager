@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha46-core
+
+- Fixed per-file Revert so it applies YAML back to active CiviCRM for the selected file and dependency closure instead of updating YAML from CiviCRM.
+- Improved Managed Types and Filter Config Types display for extension-owned config entities by separating the entity label from the provider extension key.
+- Added menu bar display settings (`menubar_color` and `menubar_position`) to the recommended settings allowlist and upgrade checks.
+- Updated sync labels to distinguish changed files, added-in-CiviCRM files, and added-in-YAML files clearly.
+
 ## 0.1.0-alpha45-core
 
 - Renamed the extension machine key to `civi.config.manager` while keeping the public UI label as `Configuration Manager`. Legacy self-ignore rules for older keys remain in place so existing YAML does not create a self-management loop.
@@ -218,7 +225,7 @@ All notable ZIP/test builds for `civi.config.manager` are tracked here. Other do
 
 ## 0.1.0-alpha21-core
 
-- Renamed the extension key from `org.cividesk.configmanager` to `civi.config.manager`.
+- Renamed the extension key to `civi.config.manager`.
 - Hardened Sync Directory locking when `civicfg_sync_dir` is defined in `civicrm.settings.php`; the UI now treats the value as code-owned and does not save UI changes to it.
 - Added Drupal-style import behavior for supported option-value removals.
 - Kept import conservative for unsupported config types and whole missing option-group files.

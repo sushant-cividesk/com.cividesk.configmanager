@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha45-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha46-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -374,3 +374,11 @@ The safest target workflow is one site codebase moving configuration between its
 - The Synchronize screen includes per-file Revert and Ignore actions. Revert makes the selected YAML match active CiviCRM. Ignore can save either a whole-file ignore rule or selected field-level ignore rules.
 - Extension-owned config filters are discovered dynamically from supported contributed/custom extension APIs. If an enabled extension exposes safe importable config entities, those entities can appear as separate filter/managed-type options.
 - Generic extension config export skips read-only/generated API entities that cannot be recreated or updated through API. This avoids broken cross-environment imports for provider-generated records.
+
+
+## Alpha 46 Notes
+
+- Revert on the Synchronize screen now applies YAML back into active CiviCRM for the selected file and its dependency closure. It no longer rewrites YAML from the current database value.
+- Managed Types and Filter Config Types now render extension-owned config more cleanly, with the provider extension shown as secondary text.
+- Sync status language now distinguishes changed fields, added-in-CiviCRM files, and added-in-YAML files instead of calling every difference a change.
+- `menubar_color` and `menubar_position` are included in the recommended settings allowlist so Riverlea menu-bar environment differences can be detected or ignored field-by-field.

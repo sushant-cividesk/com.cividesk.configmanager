@@ -38,6 +38,23 @@ class CRM_Configmanager_Upgrader extends CRM_Extension_Upgrader_Base {
     return TRUE;
   }
 
+  public function upgrade_1046() {
+    $this->ctx->log->info('Applying Configuration Manager alpha46 setting allowlist checks.');
+    $this->runLifecycle(TRUE, FALSE);
+    if (class_exists('Civi')) {
+      $allowlist = (array) \Civi::settings()->get('civicfg_settings_allowlist');
+      foreach (['menubar_color', 'menubar_position'] as $settingName) {
+        if (!in_array($settingName, $allowlist, TRUE)) {
+          $allowlist[] = $settingName;
+        }
+      }
+      $allowlist = array_values(array_unique(array_filter(array_map('strval', $allowlist))));
+      sort($allowlist, SORT_NATURAL | SORT_FLAG_CASE);
+      \Civi::settings()->set('civicfg_settings_allowlist', $allowlist);
+    }
+    return TRUE;
+  }
+
   private function runLifecycle(bool $installCli, bool $removeCli): void {
     if (function_exists('_configmanager_lifecycle')) {
       _configmanager_lifecycle($installCli, $removeCli);

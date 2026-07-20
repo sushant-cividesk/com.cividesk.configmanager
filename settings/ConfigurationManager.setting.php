@@ -96,6 +96,8 @@ return [
       'lcMonetary',
       'mailing_backend',
       'maxFileSize',
+      'menubar_color',
+      'menubar_position',
       'theme_backend',
       'theme_frontend',
     ],

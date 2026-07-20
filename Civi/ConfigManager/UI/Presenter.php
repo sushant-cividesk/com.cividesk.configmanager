@@ -74,6 +74,7 @@ class Presenter {
         'directory' => (string) ($option['directory'] ?? ''),
         'weight' => (int) ($option['weight'] ?? 0),
         'virtual' => !empty($option['virtual']),
+        'provider' => (string) ($option['provider'] ?? ''),
         'status' => $status,
         'dbCount' => $dbCount,
         'fileCount' => $fileCount,
@@ -218,10 +219,10 @@ class Presenter {
 
   public function statusLabel(string $status): string {
     if ($status === 'missing_in_db') {
-      return ts('In YAML');
+      return ts('Added in YAML');
     }
     if ($status === 'new_in_db') {
-      return ts('In CiviCRM');
+      return ts('Added in CiviCRM');
     }
     if ($status === 'changed') {
       return ts('Changed');
@@ -234,7 +235,7 @@ class Presenter {
       return ts('Create in CiviCRM');
     }
     if ($status === 'new_in_db') {
-      return ts('Delete from CiviCRM');
+      return ts('Remove from CiviCRM');
     }
     return ts('Update CiviCRM');
   }

@@ -47,11 +47,11 @@ class Permission {
   public function requireForPage(string $op, string $postAction): void {
     self::require(self::ACCESS);
 
-    if (in_array($op, ['single-export-json', 'download-archive', 'download-single', 'export'], TRUE) || in_array($postAction, ['export_write', 'revert_file'], TRUE)) {
+    if (in_array($op, ['single-export-json', 'download-archive', 'download-single', 'export'], TRUE) || $postAction === 'export_write') {
       self::require(self::EXPORT);
     }
 
-    if ($op === 'import' || in_array($postAction, ['import_apply', 'import_single_yaml', 'import_zip_archive'], TRUE)) {
+    if ($op === 'import' || in_array($postAction, ['import_apply', 'import_single_yaml', 'import_zip_archive', 'revert_file'], TRUE)) {
       self::require(self::IMPORT);
     }
 
