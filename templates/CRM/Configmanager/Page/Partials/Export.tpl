@@ -20,6 +20,20 @@
           </form>
           <a class="button" href="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=download-archive'}"><span>{ts}Download ZIP{/ts}</span></a>
         </div>
+        {if $diffFiles|@count gt 0}
+          <div class="civicfg-change-list">
+            {foreach from=$diffFiles item=file}
+              <div class="civicfg-change-card">
+                <h4><code class="civicfg-file-code">{$file.path|escape}</code></h4>
+                <div class="civicfg-change-meta">
+                  <span class="civicfg-badge warn">{$file.status_label|escape}</span>
+                  <span class="civicfg-muted">{$file.type_label|escape}</span>
+                </div>
+                <div class="civicfg-file-summary">{$file.summary_sentence|escape}</div>
+              </div>
+            {/foreach}
+          </div>
+        {/if}
         <div class="messages status no-popup">
           {ts}Use Export to write current CiviCRM configuration to the sync directory. Use Download ZIP to download the full current sync directory archive.{/ts}
         </div>

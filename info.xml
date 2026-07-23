@@ -9,7 +9,7 @@
     <email>sushant@cividesk.com</email>
   </maintainer>
   <releaseDate>2026-07-06</releaseDate>
-  <version>0.1.0-alpha46-core</version>
+  <version>0.1.0-alpha47-core</version>
   <develStage>alpha</develStage>
   <compatibility>
     <ver>5.0</ver>
@@ -18,5 +18,5 @@
   <mixins>
     <mixin>scan-classes@1.0.0</mixin>
   </mixins>
-  <comments>Alpha core build: fixes per-file revert-to-YAML, improves managed type UI, and tracks menu bar settings.</comments>
+  <comments>Alpha core build: improves readable sync review, ignore dependencies, managed type UI, and project CLI wrappers.</comments>
 </extension>

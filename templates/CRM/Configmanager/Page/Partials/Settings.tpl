@@ -35,10 +35,26 @@
           <td class="label">{ts}Managed Types{/ts}</td>
           <td>
             <p class="description">{ts}Leave all unchecked to manage all supported types. Select types only if this site should manage a subset.{/ts}</p>
-            <div class="civicfg-checkbox-grid">
-              {foreach from=$allTypes item=row}
-                <label class="civicfg-type-option{if $row.virtual} civicfg-type-option-virtual{/if}"><input type="checkbox" name="enabled_types[]" value="{$row.type|escape}" {if $enabledTypesMap[$row.type]}checked="checked"{/if} /> <span class="civicfg-type-text"><span class="civicfg-type-name">{$row.label|escape}</span>{if $row.provider}<small>{$row.provider|escape}</small>{/if}</span></label>
-              {/foreach}
+            <div class="civicfg-type-group">
+              <h4>{ts}Standard managed types{/ts}</h4>
+              <div class="civicfg-checkbox-grid">
+                {foreach from=$allTypes item=row}
+                  {if !$row.virtual}
+                    <label class="civicfg-type-option"><input type="checkbox" name="enabled_types[]" value="{$row.type|escape}" {if $enabledTypesMap[$row.type]}checked="checked"{/if} /> <span class="civicfg-type-text"><span class="civicfg-type-name">{$row.label|escape}</span><small>{$row.directory|escape}</small></span></label>
+                  {/if}
+                {/foreach}
+              </div>
+            </div>
+            <div class="civicfg-type-group civicfg-type-group-extension">
+              <h4>{ts}Extension-owned managed config{/ts}</h4>
+              <p class="description">{ts}Generated automatically for enabled contrib/custom extensions when their API records can be exported and imported safely.{/ts}</p>
+              <div class="civicfg-checkbox-grid">
+                {foreach from=$allTypes item=row}
+                  {if $row.virtual}
+                    <label class="civicfg-type-option civicfg-type-option-virtual"><input type="checkbox" name="enabled_types[]" value="{$row.type|escape}" {if $enabledTypesMap[$row.type]}checked="checked"{/if} /> <span class="civicfg-type-text"><span class="civicfg-type-name">{$row.label|escape}</span>{if $row.provider}<small>{$row.provider|escape}</small>{/if}</span></label>
+                  {/if}
+                {/foreach}
+              </div>
             </div>
           </td>
         </tr>

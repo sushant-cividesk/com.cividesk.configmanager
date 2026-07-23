@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha46-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha47-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -382,3 +382,38 @@ The safest target workflow is one site codebase moving configuration between its
 - Managed Types and Filter Config Types now render extension-owned config more cleanly, with the provider extension shown as secondary text.
 - Sync status language now distinguishes changed fields, added-in-CiviCRM files, and added-in-YAML files instead of calling every difference a change.
 - `menubar_color` and `menubar_position` are included in the recommended settings allowlist so Riverlea menu-bar environment differences can be detected or ignored field-by-field.
+
+## Alpha 47 Notes
+
+- Synchronize now keeps the technical YAML/file view but adds plain-language explanations so non-developers can see whether a record was changed, added in CiviCRM, added in YAML, or removed.
+- Managed type filters are grouped into standard CiviCRM config and extension-owned config discovered from enabled contrib/custom extensions.
+- Whole-file ignore now avoids leaving stale extension config index references when the ignored file belongs to split extension-owned config.
+- Field-level ignore UI now automatically selects the field-level option when fields are checked and clears fields when whole-file ignore is chosen.
+
+## CLI usage
+
+The extension ships with `bin/civicfg` plus aliases: `ce`, `ci`, `cdf`, `cval`, `cvcfg`, `config-export`, `config-import`, `config-diff`, and `config-validate`. On install/enable, Configuration Manager attempts to install project wrappers in these locations when writable:
+
+- `<cms-docroot>/bin`
+- `<project-root>/bin` when the CMS docroot is named `web`
+- `/var/www/html/bin` in DDEV/buildkit containers when writable
+
+Examples from a CiviCRM build:
+
+```bash
+civicfg status
+ce --write
+ci --dry-run
+ci --yes
+cdf --type settings
+cval
+```
+
+If the wrapper is not in `PATH`, call it by path, for example:
+
+```bash
+/var/www/html/build/dcivi-dev/bin/ce --write
+/var/www/html/bin/civicfg status
+```
+
+Wrappers are managed files. They are not written over existing non-managed files. When the extension is disabled or unavailable, the wrapper stops with a clear warning instead of running stale code.

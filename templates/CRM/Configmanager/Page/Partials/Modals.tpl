@@ -13,7 +13,7 @@
               <tbody>
                 {foreach from=$file.rows item=row}
                   <tr>
-                    <td><strong>{$row.label|escape}</strong><br /><code>{$row.path|escape}</code></td>
+                    <td><strong>{$row.label|escape}</strong><br /><code>{$row.path|escape}</code><div class="civicfg-row-sentence">{$row.sentence|escape}</div></td>
                     <td class="civicfg-diff-old"><div class="civicfg-diff-value">{$row.old_html nofilter}</div></td>
                     <td class="civicfg-diff-new"><div class="civicfg-diff-value">{$row.new_html nofilter}</div></td>
                   </tr>
@@ -41,12 +41,12 @@
               <input type="hidden" name="_action" value="ignore_config" />
               <input type="hidden" name="path" value="{$file.path|escape}" />
               <div class="civicfg-ignore-choice">
-                <label><input type="radio" name="ignore_scope" value="file" checked="checked" /> {ts}Ignore the whole YAML file{/ts}</label>
+                <label><input type="radio" name="ignore_scope" value="file" checked="checked" data-civicfg-ignore-file="1" /> {ts}Ignore the whole YAML file{/ts}</label>
               </div>
               {if $file.rows}
                 <div class="civicfg-ignore-choice">
-                  <label><input type="radio" name="ignore_scope" value="fields" /> {ts}Ignore only selected field(s){/ts}</label>
-                  <div class="civicfg-ignore-fields">
+                  <label><input type="radio" name="ignore_scope" value="fields" data-civicfg-ignore-fields-radio="1" /> {ts}Ignore only selected field(s){/ts}</label>
+                  <div class="civicfg-ignore-fields" data-civicfg-ignore-fields="1">
                     {foreach from=$file.rows item=row}
                       <label><input type="checkbox" name="value_path[]" value="{$row.path|escape}" /> {$row.label|escape} <code>{$row.path|escape}</code></label>
                     {/foreach}

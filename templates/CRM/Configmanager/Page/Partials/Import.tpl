@@ -28,13 +28,14 @@
                   <span>{$item.change_count|escape} {if $item.status eq 'changed'}{ts}Changed Field(s){/ts}{elseif $item.status eq 'new_in_db'}{ts}Added Field(s){/ts}{else}{ts}YAML Field(s){/ts}{/if}</span>
                   <span class="civicfg-muted">{$item.type_label|escape}</span>
                 </div>
+                <div class="civicfg-file-summary">{$item.path|escape}: {$item.status_label|escape}. {$item.note|escape}</div>
                 {if $item.note}<div class="messages warning no-popup">{$item.note|escape}</div>{/if}
                 {if $item.rows}
                   <div class="civicfg-import-diff-list">
                     {foreach from=$item.rows item=row name=importrowloop}
                       {if $smarty.foreach.importrowloop.index lt 6}
                         <div class="civicfg-import-diff-row">
-                          <div class="civicfg-import-diff-field"><strong>{$row.label|escape}</strong><br /><code>{$row.path|escape}</code></div>
+                          <div class="civicfg-import-diff-field"><strong>{$row.label|escape}</strong><br /><code>{$row.path|escape}</code><div class="civicfg-row-sentence">{$row.sentence|escape}</div></div>
                           <div class="civicfg-import-diff-cell civicfg-diff-new"><span class="civicfg-muted">{ts}Current CiviCRM{/ts}</span><div class="civicfg-diff-value">{$row.new_html nofilter}</div></div>
                           <div class="civicfg-import-diff-cell civicfg-diff-old"><span class="civicfg-muted">{ts}YAML To Import{/ts}</span><div class="civicfg-diff-value">{$row.old_html nofilter}</div></div>
                         </div>

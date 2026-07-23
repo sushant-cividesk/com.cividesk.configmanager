@@ -210,3 +210,15 @@
   font-weight: 400;
   font-size: .82rem;
 }
+.crm-configmanager-block .civicfg-type-group {margin: .75rem 0 1rem;}
+.crm-configmanager-block .civicfg-type-group h4 {margin: .25rem 0 .4rem; font-size: 1rem;}
+.crm-configmanager-block .civicfg-type-group-extension {border-top: 1px solid #e2e6ea; padding-top: .75rem;}
+.crm-configmanager-block .civicfg-type-option {align-items: flex-start; min-height: 2.4rem;}
+.crm-configmanager-block .civicfg-type-text {display: grid; gap: .1rem; min-width: 0;}
+.crm-configmanager-block .civicfg-type-name {font-weight: 600; line-height: 1.25; overflow-wrap: anywhere;}
+.crm-configmanager-block .civicfg-type-text small {color: #5f6b7a; font-size: .82rem; line-height: 1.2; overflow-wrap: anywhere;}
+.crm-configmanager-block .civicfg-checkbox-grid {grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start;}
+.crm-configmanager-block .civicfg-file-summary {flex: 1 1 100%; color: #3f4d63; margin-top: .2rem; line-height: 1.35;}
+.crm-configmanager-block .civicfg-row-sentence {margin-top: .35rem; color: #3f4d63; font-size: .92rem; line-height: 1.35;}
+.crm-configmanager-block .civicfg-ignore-choice input[type="radio"] {margin-right: .35rem;}
+.crm-configmanager-block .civicfg-ignore-fields input[type="checkbox"] {margin-right: .25rem;}

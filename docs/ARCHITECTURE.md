@@ -172,3 +172,11 @@ Option group value validation allows CiviCRM core data where option value names 
 ## Config ignore
 
 `civicfg_ignore_paths` stores relative YAML paths or simple wildcard patterns that are skipped by diff, validate, export, and import. The service also ignores `extensions/civi.config.manager.yml` by default to avoid self-management loops while the extension is running imports.
+
+## Supported configuration coverage
+
+Configuration Manager manages core CiviCRM config through dedicated handlers where stable identities and import behavior are known. Current dedicated/standard handlers include extensions, option groups/values, contact types, relationship types, location types, financial types, payment processors, custom groups/fields, CiviCRM settings allowlist, site tokens, message templates, dedupe rules, scheduled jobs, SearchKit saved searches/displays, FormBuilder afforms, and CiviRules when the CiviRules API entities are available.
+
+Contributed/custom extension configuration is discovered generically from enabled extensions. A discovered extension-owned API entity is exported only when it appears deployable: it has stable identity fields and import actions are available. Read-only/generated provider entities are skipped rather than written as broken YAML. Examples include Contact Layout records, SQLTasks action templates, Mosaico user-created templates, CiviDiscount records, Riverlea settings/config, and similar extension-owned records when exposed through safe API3/API4 entities.
+
+When split extension-owned YAML files are ignored or filtered, the parent extension YAML `config_index` is rebuilt from the remaining exported files so ignored files do not leave dangling index-only references.

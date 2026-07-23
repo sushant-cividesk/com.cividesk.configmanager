@@ -4,7 +4,7 @@ namespace Civi\ConfigManager\Service;
 use Civi\ConfigManager\Version;
 
 /**
- * Installs project-level CLI wrappers without requiring a global root path.
+ * Installs project-level CLI wrappers without requiring root access.
  * Existing non-managed files are never overwritten.
  */
 class CliInstaller {
@@ -15,65 +15,82 @@ class CliInstaller {
   }
 
   public function install(): array {
-    $projectRoot = rtrim($this->manager->getProjectRoot(), DIRECTORY_SEPARATOR);
-    $binDir = $projectRoot . DIRECTORY_SEPARATOR . 'bin';
-    $result = ['ok' => TRUE, 'bin_dir' => $binDir, 'installed' => [], 'skipped' => [], 'errors' => []];
-
-    if (!is_dir($binDir) && !@mkdir($binDir, 0775, TRUE) && !is_dir($binDir)) {
-      $result['ok'] = FALSE;
-      $result['errors'][] = 'Could not create project bin directory: ' . $binDir;
-      return $result;
-    }
-    if (!is_writable($binDir)) {
-      $result['ok'] = FALSE;
-      $result['errors'][] = 'Project bin directory is not writable: ' . $binDir;
-      return $result;
-    }
-
-    foreach ($this->commands() as $name => $command) {
-      $target = $binDir . DIRECTORY_SEPARATOR . $name;
-      if (is_file($target) && !$this->isManagedWrapper($target)) {
-        $result['skipped'][] = $target . ' (existing non-managed file)';
-        continue;
-      }
-      $script = $this->buildWrapperScript($command);
-      if (@file_put_contents($target, $script) === FALSE) {
+    $result = ['ok' => TRUE, 'bin_dirs' => [], 'installed' => [], 'skipped' => [], 'errors' => []];
+    foreach ($this->getBinDirs() as $binDir) {
+      $result['bin_dirs'][] = $binDir;
+      if (!is_dir($binDir) && !@mkdir($binDir, 0775, TRUE) && !is_dir($binDir)) {
         $result['ok'] = FALSE;
-        $result['errors'][] = 'Could not write CLI wrapper: ' . $target;
+        $result['errors'][] = 'Could not create project bin directory: ' . $binDir;
         continue;
       }
-      @chmod($target, 0775);
-      $result['installed'][] = $target;
+      if (!is_writable($binDir)) {
+        $result['ok'] = FALSE;
+        $result['errors'][] = 'Project bin directory is not writable: ' . $binDir;
+        continue;
+      }
+      foreach ($this->commands() as $name => $command) {
+        $target = $binDir . DIRECTORY_SEPARATOR . $name;
+        if (is_file($target) && !$this->isManagedWrapper($target)) {
+          $result['skipped'][] = $target . ' (existing non-managed file)';
+          continue;
+        }
+        $script = $this->buildWrapperScript($command);
+        if (@file_put_contents($target, $script) === FALSE) {
+          $result['ok'] = FALSE;
+          $result['errors'][] = 'Could not write CLI wrapper: ' . $target;
+          continue;
+        }
+        @chmod($target, 0775);
+        $result['installed'][] = $target;
+      }
     }
-
     return $result;
   }
 
   public function uninstall(): array {
-    $projectRoot = rtrim($this->manager->getProjectRoot(), DIRECTORY_SEPARATOR);
-    $binDir = $projectRoot . DIRECTORY_SEPARATOR . 'bin';
-    $result = ['ok' => TRUE, 'bin_dir' => $binDir, 'removed' => [], 'skipped' => [], 'errors' => []];
-    foreach (array_keys($this->commands()) as $name) {
-      $target = $binDir . DIRECTORY_SEPARATOR . $name;
-      if (!is_file($target)) {
-        continue;
+    $result = ['ok' => TRUE, 'bin_dirs' => [], 'removed' => [], 'skipped' => [], 'errors' => []];
+    foreach ($this->getBinDirs() as $binDir) {
+      $result['bin_dirs'][] = $binDir;
+      foreach (array_keys($this->commands()) as $name) {
+        $target = $binDir . DIRECTORY_SEPARATOR . $name;
+        if (!is_file($target)) {
+          continue;
+        }
+        if (!$this->isManagedWrapper($target)) {
+          $result['skipped'][] = $target . ' (existing non-managed file)';
+          continue;
+        }
+        if (!@unlink($target)) {
+          $result['ok'] = FALSE;
+          $result['errors'][] = 'Could not remove CLI wrapper: ' . $target;
+          continue;
+        }
+        $result['removed'][] = $target;
       }
-      if (!$this->isManagedWrapper($target)) {
-        $result['skipped'][] = $target . ' (existing non-managed file)';
-        continue;
-      }
-      if (!@unlink($target)) {
-        $result['ok'] = FALSE;
-        $result['errors'][] = 'Could not remove CLI wrapper: ' . $target;
-        continue;
-      }
-      $result['removed'][] = $target;
     }
     return $result;
   }
 
   public function ensureSiteIdentifier(): string {
     return $this->manager->getSiteIdentifier();
+  }
+
+  private function getBinDirs(): array {
+    $root = rtrim($this->manager->getProjectRoot(), DIRECTORY_SEPARATOR);
+    $dirs = [];
+    if ($root !== '') {
+      $dirs[] = $root . DIRECTORY_SEPARATOR . 'bin';
+      // Drupal/Backdrop usually report the CMS docroot. Add the Composer project
+      // root one level above /web so commands also work from the site root.
+      if (basename($root) === 'web') {
+        $dirs[] = dirname($root) . DIRECTORY_SEPARATOR . 'bin';
+      }
+    }
+    // Buildkit/DDEV convenience: allow a shared /var/www/html/bin when writable.
+    if (is_dir('/var/www/html') && is_writable('/var/www/html')) {
+      $dirs[] = '/var/www/html/bin';
+    }
+    return array_values(array_unique($dirs));
   }
 
   private function commands(): array {
@@ -141,8 +158,6 @@ BASH;
 
   private function isManagedWrapper(string $file): bool {
     $contents = @file_get_contents($file);
-    return is_string($contents)
-      && (strpos($contents, 'Managed by Configuration Manager extension') !== FALSE
-        || strpos($contents, 'Managed by Configuration Manager extension') !== FALSE);
+    return is_string($contents) && strpos($contents, 'Managed by Configuration Manager extension') !== FALSE;
   }
 }

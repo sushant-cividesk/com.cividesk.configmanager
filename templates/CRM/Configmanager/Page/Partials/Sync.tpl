@@ -102,7 +102,7 @@
       <details class="civicfg-panel civicfg-files-panel" open="open">
         <summary>{ts}Changed / Added / Removed Files{/ts}</summary>
         <div class="civicfg-panel-body">
-          <p class="description">{ts}Only files with differences are listed. Open Diff to review changed, added, or removed fields before exporting, importing, reverting, or ignoring.{/ts}</p>
+          <p class="description">{ts}Only files with differences are listed. Each row explains whether active CiviCRM was updated, YAML added something, or YAML is missing something. Open Diff for exact fields before exporting, importing, reverting, or ignoring.{/ts}</p>
           <div class="civicfg-file-lines">
             {foreach from=$diffFiles item=file}
               <div class="civicfg-file-line">
@@ -110,6 +110,7 @@
                 <span class="civicfg-badge warn">{$file.status_label|escape}</span>
                 <span>{$file.change_count|escape} {if $file.status eq 'changed'}{ts}Changed Field(s){/ts}{elseif $file.status eq 'new_in_db'}{ts}Added Field(s){/ts}{else}{ts}YAML Field(s){/ts}{/if}</span>
                 <span class="civicfg-muted">{$file.type_label|escape}</span>
+                <div class="civicfg-file-summary">{$file.summary_sentence|escape}</div>
                 <button type="button" class="button civicfg-line-button" data-civicfg-open="{$file.id|escape}"><span>{ts}Diff{/ts}</span></button>
                 {if $canImport}
                   <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Revert Active CiviCRM From YAML" data-civicfg-confirm-word="REVERT" data-civicfg-confirm-button="Revert" data-civicfg-confirm-message="This will apply this YAML file back to active CiviCRM. If the YAML file has dependencies, those dependency YAML files are applied with it. If the YAML file does not exist, the matching CiviCRM record is removed when the handler supports deletion." data-civicfg-confirm-warning="Only the selected file and its dependency closure are reverted: {$file.path|escape}.">

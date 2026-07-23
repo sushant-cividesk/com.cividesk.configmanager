@@ -12,10 +12,26 @@
               {foreach from=$exportDependencyTypeLabels key=depType item=depLabel}<code>{$depLabel|escape}</code> {/foreach}
             </div>
           {/if}
-          <div class="civicfg-checkbox-grid">
-            {foreach from=$allTypes item=row}
-              <label class="civicfg-type-option{if $row.virtual} civicfg-type-option-virtual{/if}"><input type="checkbox" name="type[]" value="{$row.type|escape}" {if $selectedTypesMap[$row.type]}checked="checked"{/if} /> <span class="civicfg-type-text"><span class="civicfg-type-name">{$row.label|escape}</span>{if $row.provider}<small>{$row.provider|escape}</small>{/if}</span></label>
-            {/foreach}
+          <div class="civicfg-type-group">
+            <h4>{ts}Standard managed types{/ts}</h4>
+            <div class="civicfg-checkbox-grid">
+              {foreach from=$allTypes item=row}
+                {if !$row.virtual}
+                  <label class="civicfg-type-option"><input type="checkbox" name="type[]" value="{$row.type|escape}" {if $selectedTypesMap[$row.type]}checked="checked"{/if} /> <span class="civicfg-type-text"><span class="civicfg-type-name">{$row.label|escape}</span><small>{$row.directory|escape}</small></span></label>
+                {/if}
+              {/foreach}
+            </div>
+          </div>
+          <div class="civicfg-type-group civicfg-type-group-extension">
+            <h4>{ts}Extension-owned managed config{/ts}</h4>
+            <p class="description">{ts}These appear automatically for enabled extensions when their API exposes safe deployable configuration. Generated/read-only provider records are skipped.{/ts}</p>
+            <div class="civicfg-checkbox-grid">
+              {foreach from=$allTypes item=row}
+                {if $row.virtual}
+                  <label class="civicfg-type-option civicfg-type-option-virtual"><input type="checkbox" name="type[]" value="{$row.type|escape}" {if $selectedTypesMap[$row.type]}checked="checked"{/if} /> <span class="civicfg-type-text"><span class="civicfg-type-name">{$row.label|escape}</span>{if $row.provider}<small>{$row.provider|escape}</small>{/if}</span></label>
+                {/if}
+              {/foreach}
+            </div>
           </div>
           <div class="civicfg-actions">
             <button type="submit" class="button"><span>{ts}Apply{/ts}</span></button>

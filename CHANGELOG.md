@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha47-core
+
+- Improved Synchronize, Import, and Export review screens with plain-language descriptions for changed, added, and removed configuration.
+- Cleaned Managed Types and Filter Config Types into standard managed types and extension-owned managed config groups.
+- Fixed Ignore modal UX so selecting a field automatically chooses field-level ignore, and switching back to whole-file ignore clears field selections.
+- Pruned extension config indexes during export when split extension-owned YAML files are ignored or filtered, avoiding dangling index-only dependencies.
+- Improved project CLI wrapper installation to write wrappers to the CMS docroot `bin`, the parent project `bin` when the docroot is `web`, and the shared DDEV `/var/www/html/bin` when writable.
+- Added CLI documentation covering project wrappers, aliases, disable warnings, and recommended DDEV usage.
+
 ## 0.1.0-alpha46-core
 
 - Fixed per-file Revert so it applies YAML back to active CiviCRM for the selected file and dependency closure instead of updating YAML from CiviCRM.

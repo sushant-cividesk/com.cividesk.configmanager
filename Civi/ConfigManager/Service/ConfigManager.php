@@ -401,6 +401,7 @@ class ConfigManager {
       }
     }
 
+    $queue = $this->pruneExtensionIndexesForIgnoredOrFilteredConfig($queue);
     $queue = $this->addReverseDependencyMetadataToExportQueue($queue);
 
     foreach ($this->findStaleYamlFilesForExport($storage, $successfulHandlers, $queue) as $staleFile) {
@@ -484,6 +485,55 @@ class ConfigManager {
     }
     ksort($stale);
     return array_values($stale);
+  }
+
+
+  private function pruneExtensionIndexesForIgnoredOrFilteredConfig(array $queue): array {
+    $counts = [];
+    foreach ($queue as $file) {
+      $data = (array) ($file['data'] ?? []);
+      if (($data['type'] ?? '') !== 'extension_config.item') {
+        continue;
+      }
+      $extension = (string) ($data['extension'] ?? '');
+      $api = (string) ($data['api'] ?? '');
+      $entity = (string) ($data['entity'] ?? '');
+      if ($extension === '' || $api === '' || $entity === '') {
+        continue;
+      }
+      $key = $api . ':' . $entity;
+      $counts[$extension][$key] = ($counts[$extension][$key] ?? 0) + 1;
+    }
+
+    foreach ($queue as &$file) {
+      $data = (array) ($file['data'] ?? []);
+      if (($data['type'] ?? '') !== 'extension.item' || empty($data['config_index']) || !is_array($data['config_index'])) {
+        continue;
+      }
+      $extensionData = (array) ($data['extension'] ?? []);
+      $extensionKey = (string) ($extensionData['key'] ?? ($data['key'] ?? ''));
+      $filteredIndex = [];
+      foreach ((array) $data['config_index'] as $row) {
+        $row = (array) $row;
+        $api = (string) ($row['api'] ?? '');
+        $entity = (string) ($row['entity'] ?? '');
+        $key = $api . ':' . $entity;
+        $count = (int) ($counts[$extensionKey][$key] ?? 0);
+        if ($api === '' || $entity === '' || $count <= 0) {
+          continue;
+        }
+        $row['count'] = $count;
+        $filteredIndex[] = $row;
+      }
+      if ($filteredIndex) {
+        $file['data']['config_index'] = $filteredIndex;
+      }
+      else {
+        unset($file['data']['config_index']);
+      }
+    }
+    unset($file);
+    return $queue;
   }
 
   private function addReverseDependencyMetadataToExportQueue(array $queue): array {

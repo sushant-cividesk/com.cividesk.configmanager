@@ -10,7 +10,17 @@
       btn.addEventListener('click', function(ev) {
         ev.preventDefault();
         var modal = document.getElementById(btn.getAttribute('data-civicfg-open'));
-        if (modal) { modal.hidden = false; modal.setAttribute('aria-hidden', 'false'); modal.classList.add('is-open'); }
+        if (modal) {
+          modal.hidden = false;
+          modal.setAttribute('aria-hidden', 'false');
+          modal.classList.add('is-open');
+          modal.querySelectorAll('form').forEach(function(form) {
+            var fileRadio = form.querySelector('input[data-civicfg-ignore-file]');
+            if (fileRadio && fileRadio.checked) {
+              form.querySelectorAll('[data-civicfg-ignore-fields] input[type="checkbox"]').forEach(function(box) { box.checked = false; });
+            }
+          });
+        }
       });
     });
     document.querySelectorAll('.crm-configmanager-block [data-civicfg-close]').forEach(function(btn) {
@@ -27,6 +37,41 @@
       if (ev.key === 'Escape') {
         document.querySelectorAll('.crm-configmanager-block .civicfg-modal.is-open').forEach(function(modal) { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true'); modal.hidden = true; });
       }
+    });
+
+
+    document.querySelectorAll('.crm-configmanager-block form input[data-civicfg-ignore-file]').forEach(function(fileRadio) {
+      fileRadio.addEventListener('change', function() {
+        if (!fileRadio.checked) { return; }
+        var form = fileRadio.closest('form');
+        if (!form) { return; }
+        form.querySelectorAll('[data-civicfg-ignore-fields] input[type="checkbox"]').forEach(function(box) {
+          box.checked = false;
+        });
+      });
+    });
+
+    document.querySelectorAll('.crm-configmanager-block [data-civicfg-ignore-fields] input[type="checkbox"]').forEach(function(box) {
+      box.addEventListener('change', function() {
+        var form = box.closest('form');
+        if (!form) { return; }
+        var fieldsRadio = form.querySelector('input[data-civicfg-ignore-fields-radio]');
+        if (box.checked && fieldsRadio) {
+          fieldsRadio.checked = true;
+        }
+      });
+    });
+
+    document.querySelectorAll('.crm-configmanager-block input[data-civicfg-ignore-fields-radio]').forEach(function(fieldsRadio) {
+      fieldsRadio.addEventListener('change', function() {
+        if (!fieldsRadio.checked) { return; }
+        var form = fieldsRadio.closest('form');
+        if (!form) { return; }
+        var first = form.querySelector('[data-civicfg-ignore-fields] input[type="checkbox"]');
+        if (first && !form.querySelector('[data-civicfg-ignore-fields] input[type="checkbox"]:checked')) {
+          first.focus();
+        }
+      });
     });
 
 

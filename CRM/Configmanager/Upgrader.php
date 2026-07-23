@@ -55,6 +55,12 @@ class CRM_Configmanager_Upgrader extends CRM_Extension_Upgrader_Base {
     return TRUE;
   }
 
+  public function upgrade_1047() {
+    $this->ctx->log->info('Applying Configuration Manager alpha47 CLI and ignore dependency checks.');
+    $this->runLifecycle(TRUE, FALSE);
+    return TRUE;
+  }
+
   private function runLifecycle(bool $installCli, bool $removeCli): void {
     if (function_exists('_configmanager_lifecycle')) {
       _configmanager_lifecycle($installCli, $removeCli);

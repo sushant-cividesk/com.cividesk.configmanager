@@ -176,18 +176,24 @@ class Presenter {
         $file['type'] = $item['type'] ?? '';
         $file['type_label'] = $item['label'] ?? ($item['type'] ?? '');
         $file['status_label'] = $this->statusLabel((string) ($file['status'] ?? 'changed'));
+        $file['plain_status_label'] = $this->plainStatusLabel((string) ($file['status'] ?? 'changed'));
         $file['rows'] = [];
         foreach (($file['changes'] ?? []) as $change) {
+          $label = $this->humanizeChangePath((string) ($change['path'] ?? 'value'));
+          $oldText = $this->formatChangeValue($change['old'] ?? NULL, $change['new'] ?? NULL);
+          $newText = $this->formatChangeValue($change['new'] ?? NULL, $change['old'] ?? NULL);
           $file['rows'][] = [
-            'label' => $this->humanizeChangePath((string) ($change['path'] ?? 'value')),
+            'label' => $label,
             'path' => (string) ($change['path'] ?? 'value'),
-            'old' => $this->formatChangeValue($change['old'] ?? NULL, $change['new'] ?? NULL),
-            'new' => $this->formatChangeValue($change['new'] ?? NULL, $change['old'] ?? NULL),
+            'old' => $oldText,
+            'new' => $newText,
             'old_html' => $this->formatChangeValueHtml($change['old'] ?? NULL, $change['new'] ?? NULL),
             'new_html' => $this->formatChangeValueHtml($change['new'] ?? NULL, $change['old'] ?? NULL),
             'type' => (string) ($change['type'] ?? 'changed'),
+            'sentence' => $this->describeFieldChange($label, (string) ($change['type'] ?? 'changed'), $oldText, $newText),
           ];
         }
+        $file['summary_sentence'] = $this->describeFileChange($file);
         $files[] = $file;
       }
     }
@@ -228,6 +234,56 @@ class Presenter {
       return ts('Changed');
     }
     return ts('In Sync');
+  }
+
+  private function plainStatusLabel(string $status): string {
+    if ($status === 'missing_in_db') {
+      return ts('will be created from YAML on import');
+    }
+    if ($status === 'new_in_db') {
+      return ts('was added in CiviCRM and is not yet exported');
+    }
+    if ($status === 'changed') {
+      return ts('has different values in YAML and CiviCRM');
+    }
+    return ts('is in sync');
+  }
+
+  private function describeFileChange(array $file): string {
+    $status = (string) ($file['status'] ?? 'changed');
+    $typeLabel = (string) ($file['type_label'] ?? $file['type'] ?? 'Configuration');
+    $path = (string) ($file['path'] ?? $file['file'] ?? 'this file');
+    $count = (int) ($file['change_count'] ?? count((array) ($file['changes'] ?? [])));
+    if ($status === 'new_in_db') {
+      return ts('%1 was added in active CiviCRM and is not in YAML yet. Export will write it to %2; import will remove it when deletion is supported.', [1 => $typeLabel, 2 => $path]);
+    }
+    if ($status === 'missing_in_db') {
+      return ts('%1 exists in YAML but is missing from active CiviCRM. Import will recreate it from %2; export will delete the stale YAML if the CiviCRM record should stay removed.', [1 => $typeLabel, 2 => $path]);
+    }
+    return ts('%1 has %2 changed field(s). Review the field descriptions below, then export to update YAML or import/revert to apply YAML back to CiviCRM.', [1 => $typeLabel, 2 => $count]);
+  }
+
+  private function describeFieldChange(string $label, string $changeType, string $yamlValue, string $civiValue): string {
+    $yaml = $this->shortInlineValue($yamlValue);
+    $civi = $this->shortInlineValue($civiValue);
+    if ($changeType === 'added') {
+      return ts('%1 is present in active CiviCRM as "%2" but is missing from YAML.', [1 => $label, 2 => $civi]);
+    }
+    if ($changeType === 'removed') {
+      return ts('%1 is present in YAML as "%2" but is missing from active CiviCRM.', [1 => $label, 2 => $yaml]);
+    }
+    return ts('%1 changed: YAML has "%2" and active CiviCRM has "%3".', [1 => $label, 2 => $yaml, 3 => $civi]);
+  }
+
+  private function shortInlineValue(string $value): string {
+    $value = trim(preg_replace('/\s+/', ' ', $value) ?: '');
+    if ($value === '' || $value === '—') {
+      return 'empty';
+    }
+    if (strlen($value) > 120) {
+      return substr($value, 0, 117) . '...';
+    }
+    return $value;
   }
 
   private function importActionLabel(string $status): string {
