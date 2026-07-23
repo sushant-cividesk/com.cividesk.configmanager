@@ -586,7 +586,13 @@ class ExtensionHandler extends AbstractHandler {
 
   private function discoverSettingsByExtension(): array {
     $groups = [];
-    foreach ($this->discoverSettingMetadata() as $name => $meta) {
+    $metadata = $this->discoverSettingMetadata();
+    foreach ($this->discoverRuntimeSettingNames() as $name) {
+      $metadata[$name] = $metadata[$name] ?? ['name' => $name];
+    }
+    ksort($metadata, SORT_NATURAL | SORT_FLAG_CASE);
+
+    foreach ($metadata as $name => $meta) {
       $name = (string) $name;
       if (!$this->isSafeSettingName($name) || $this->isSensitiveSettingName($name)) {
         continue;
@@ -602,6 +608,24 @@ class ExtensionHandler extends AbstractHandler {
     }
     ksort($groups, SORT_NATURAL | SORT_FLAG_CASE);
     return $groups;
+  }
+
+  private function discoverRuntimeSettingNames(): array {
+    $names = [];
+    try {
+      $dao = \CRM_Core_DAO::executeQuery("SELECT DISTINCT name FROM civicrm_setting WHERE name IS NOT NULL AND name <> '' ORDER BY name");
+      while ($dao->fetch()) {
+        $name = (string) ($dao->name ?? '');
+        if ($name !== '') {
+          $names[$name] = TRUE;
+        }
+      }
+      $dao->free();
+    }
+    catch (\Throwable $e) {
+      // Some tests or install states may not have the settings table yet.
+    }
+    return array_keys($names);
   }
 
   private function discoverSplitConfigByExtension(): array {
@@ -845,9 +869,22 @@ class ExtensionHandler extends AbstractHandler {
       return [];
     }
     $definitions = [];
-    foreach (glob($dir . '/*.php') ?: [] as $file) {
+    $files = glob($dir . '/*.php') ?: [];
+    try {
+      $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
+      foreach ($iterator as $candidate) {
+        if ($candidate instanceof \SplFileInfo && $candidate->isFile() && strtolower($candidate->getExtension()) === 'php') {
+          $files[] = $candidate->getPathname();
+        }
+      }
+      $files = array_values(array_unique($files));
+    }
+    catch (\Throwable $e) {
+      // Keep top-level API3 files only.
+    }
+    foreach ($files as $file) {
       $entity = basename($file, '.php');
-      if ($entity === '' || in_array(strtolower($entity), ['utils'], TRUE)) {
+      if ($entity === '' || in_array(strtolower($entity), ['utils', 'index'], TRUE)) {
         continue;
       }
       if ($this->isNonImportableLegacyExtensionConfig($extensionKey, 'api3', $entity)) {
@@ -904,16 +941,18 @@ class ExtensionHandler extends AbstractHandler {
         if (is_scalar($value) && (string) $value !== '') {
           $values[] = strtolower((string) $value);
         }
+        elseif (is_array($value) && !empty($value['name'])) {
+          $values[] = strtolower((string) $value['name']);
+        }
       }
       return in_array(strtolower($action), array_values(array_unique($values)), TRUE);
     }
     catch (\Throwable $e) {
-      // Generic extension config must be deployable, so require an explicit
-      // action list. Providers without create/update support are treated as
-      // read-only and skipped instead of producing broken import YAML.
-      return FALSE;
+      $function = 'civicrm_api3_' . strtolower($entity) . '_' . strtolower($action);
+      return function_exists($function);
     }
   }
+
 
   private function api4Fields(string $entity): array {
     $class = 'Civi\\Api4\\' . $entity;

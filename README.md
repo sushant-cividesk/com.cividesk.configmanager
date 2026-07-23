@@ -6,7 +6,7 @@ Configuration Manager is a CiviCRM extension that exports selected CiviCRM confi
 - UI title: `Configuration Manager`
 - Admin path: `civicrm/admin/config-manager`
 - File format: YAML
-- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha47-core`
+- Current build: read from `info.xml`; this ZIP is `0.1.0-alpha48-core`
 - Supported CiviCRM target: 5.x and 6.x
 
 For release-by-release history, see `CHANGELOG.md`. For manual QA and round-trip checks, see `docs/TESTING.md`. Update the changelog and any affected current-behavior docs whenever a functional change is made.
@@ -417,3 +417,11 @@ If the wrapper is not in `PATH`, call it by path, for example:
 ```
 
 Wrappers are managed files. They are not written over existing non-managed files. When the extension is disabled or unavailable, the wrapper stops with a clear warning instead of running stale code.
+
+## Alpha 48 Notes
+
+- Sync, import, and export review screens now show shorter plain-language descriptions for common changed fields such as contact type labels, option value weights, extension settings, and extension-owned config records.
+- Review cards were restyled to make changed/added/removed records easier to scan across CiviCRM themes.
+- Config Ignore field selection is more robust: checking a field switches to field-level ignore, while switching back to whole-file ignore clears field selections.
+- Generic extension settings discovery now also reads runtime settings stored in `civicrm_setting`, so extensions such as SQLTasks can export additional `sqltasks_*` values even when they are not fully described by setting metadata.
+- Generic API3 discovery was broadened for contributed/custom extensions that expose importable API records but do not publish `getactions` consistently. Read-only/generated entities are still skipped.

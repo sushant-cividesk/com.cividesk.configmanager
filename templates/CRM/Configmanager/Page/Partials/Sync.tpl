@@ -105,23 +105,36 @@
           <p class="description">{ts}Only files with differences are listed. Each row explains whether active CiviCRM was updated, YAML added something, or YAML is missing something. Open Diff for exact fields before exporting, importing, reverting, or ignoring.{/ts}</p>
           <div class="civicfg-file-lines">
             {foreach from=$diffFiles item=file}
-              <div class="civicfg-file-line">
-                <code class="civicfg-file-code">{$file.path|escape}</code>
-                <span class="civicfg-badge warn">{$file.status_label|escape}</span>
-                <span>{$file.change_count|escape} {if $file.status eq 'changed'}{ts}Changed Field(s){/ts}{elseif $file.status eq 'new_in_db'}{ts}Added Field(s){/ts}{else}{ts}YAML Field(s){/ts}{/if}</span>
-                <span class="civicfg-muted">{$file.type_label|escape}</span>
-                <div class="civicfg-file-summary">{$file.summary_sentence|escape}</div>
-                <button type="button" class="button civicfg-line-button" data-civicfg-open="{$file.id|escape}"><span>{ts}Diff{/ts}</span></button>
-                {if $canImport}
-                  <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Revert Active CiviCRM From YAML" data-civicfg-confirm-word="REVERT" data-civicfg-confirm-button="Revert" data-civicfg-confirm-message="This will apply this YAML file back to active CiviCRM. If the YAML file has dependencies, those dependency YAML files are applied with it. If the YAML file does not exist, the matching CiviCRM record is removed when the handler supports deletion." data-civicfg-confirm-warning="Only the selected file and its dependency closure are reverted: {$file.path|escape}.">
-                    <input type="hidden" name="_action" value="revert_file" />
-                    <input type="hidden" name="path" value="{$file.path|escape}" />
-                    <button type="submit" class="button civicfg-line-button"><span>{ts}Revert CiviCRM{/ts}</span></button>
-                  </form>
-                {/if}
-                {if $canAdminister}
-                  <button type="button" class="button civicfg-line-button" data-civicfg-open="{$file.id|escape}-ignore"><span>{ts}Ignore{/ts}</span></button>
-                {/if}
+              <div class="civicfg-file-card civicfg-state-{$file.status|escape}">
+                <div class="civicfg-file-main">
+                  <div class="civicfg-file-title"><code class="civicfg-file-code">{$file.path|escape}</code></div>
+                  <div class="civicfg-file-meta">
+                    <span class="civicfg-badge civicfg-badge-{$file.status|escape}">{$file.status_label|escape}</span>
+                    <span class="civicfg-muted">{$file.change_count|escape} {if $file.status eq 'changed'}{ts}changed field(s){/ts}{elseif $file.status eq 'new_in_db'}{ts}field(s) to export{/ts}{else}{ts}field(s) in YAML{/ts}{/if}</span>
+                    <span class="civicfg-muted">{$file.type_label|escape}</span>
+                  </div>
+                  <div class="civicfg-file-summary">{$file.summary_sentence|escape}</div>
+                  {if $file.detail_sentences|@count gt 1}
+                    <ul class="civicfg-change-sentences">
+                      {foreach from=$file.detail_sentences item=sentence name=sentences}
+                        {if $smarty.foreach.sentences.index lt 3}<li>{$sentence|escape}</li>{/if}
+                      {/foreach}
+                    </ul>
+                  {/if}
+                </div>
+                <div class="civicfg-row-actions">
+                  <button type="button" class="button civicfg-action-secondary civicfg-line-button" data-civicfg-open="{$file.id|escape}"><span>{ts}Details{/ts}</span></button>
+                  {if $canImport}
+                    <form method="post" action="{crmURL p='civicrm/admin/config-manager' q='reset=1&op=sync'}" data-civicfg-confirm-modal="1" data-civicfg-confirm-title="Revert Active CiviCRM From YAML" data-civicfg-confirm-word="REVERT" data-civicfg-confirm-button="Revert" data-civicfg-confirm-message="This will apply this YAML file back to active CiviCRM. If the YAML file has dependencies, those dependency YAML files are applied with it. If the YAML file does not exist, the matching CiviCRM record is removed when the handler supports deletion." data-civicfg-confirm-warning="Only the selected file and its dependency closure are reverted: {$file.path|escape}.">
+                      <input type="hidden" name="_action" value="revert_file" />
+                      <input type="hidden" name="path" value="{$file.path|escape}" />
+                      <button type="submit" class="button civicfg-action-apply civicfg-line-button"><span>{ts}Revert CiviCRM{/ts}</span></button>
+                    </form>
+                  {/if}
+                  {if $canAdminister}
+                    <button type="button" class="button civicfg-action-ignore civicfg-line-button" data-civicfg-open="{$file.id|escape}-ignore"><span>{ts}Ignore{/ts}</span></button>
+                  {/if}
+                </div>
               </div>
             {/foreach}
           </div>

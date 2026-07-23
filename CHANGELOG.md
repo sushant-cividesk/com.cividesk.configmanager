@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha48-core
+
+- Improved Sync, Import, and Export review screens with plain-language field summaries such as contact type label changes and option value weight/order changes.
+- Cleaned up review card UI and action button variants for clearer theme-safe UX.
+- Hardened Config Ignore modal behavior so field selection and whole-file selection stay mutually clear.
+- Added runtime `civicrm_setting` discovery for extension-related settings, improving generic support for SQLTasks-style extension configuration.
+- Broadened generic API3 extension entity discovery with a conventional action-function fallback while continuing to skip read-only/generated provider records.
+
+
 ## 0.1.0-alpha47-core
 
 - Improved Synchronize, Import, and Export review screens with plain-language descriptions for changed, added, and removed configuration.

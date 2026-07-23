@@ -182,6 +182,7 @@ class Presenter {
           $label = $this->humanizeChangePath((string) ($change['path'] ?? 'value'));
           $oldText = $this->formatChangeValue($change['old'] ?? NULL, $change['new'] ?? NULL);
           $newText = $this->formatChangeValue($change['new'] ?? NULL, $change['old'] ?? NULL);
+          $sentence = $this->describeFieldChange($file, (array) $change, $label, (string) ($change['type'] ?? 'changed'), $oldText, $newText);
           $file['rows'][] = [
             'label' => $label,
             'path' => (string) ($change['path'] ?? 'value'),
@@ -190,9 +191,10 @@ class Presenter {
             'old_html' => $this->formatChangeValueHtml($change['old'] ?? NULL, $change['new'] ?? NULL),
             'new_html' => $this->formatChangeValueHtml($change['new'] ?? NULL, $change['old'] ?? NULL),
             'type' => (string) ($change['type'] ?? 'changed'),
-            'sentence' => $this->describeFieldChange($label, (string) ($change['type'] ?? 'changed'), $oldText, $newText),
+            'sentence' => $sentence,
           ];
         }
+        $file['detail_sentences'] = array_slice(array_values(array_unique(array_filter(array_map(static fn($row) => (string) ($row['sentence'] ?? ''), $file['rows'])))), 0, 4);
         $file['summary_sentence'] = $this->describeFileChange($file);
         $files[] = $file;
       }
@@ -214,6 +216,8 @@ class Presenter {
         'status' => $status,
         'change_count' => $file['change_count'] ?? 0,
         'rows' => $file['rows'] ?? [],
+        'detail_sentences' => $file['detail_sentences'] ?? [],
+        'summary_sentence' => $file['summary_sentence'] ?? '',
         'importable' => $importable,
         'action' => $this->importActionLabel($status),
         'status_label' => $this->statusLabel($status),
@@ -251,28 +255,126 @@ class Presenter {
 
   private function describeFileChange(array $file): string {
     $status = (string) ($file['status'] ?? 'changed');
-    $typeLabel = (string) ($file['type_label'] ?? $file['type'] ?? 'Configuration');
     $path = (string) ($file['path'] ?? $file['file'] ?? 'this file');
-    $count = (int) ($file['change_count'] ?? count((array) ($file['changes'] ?? [])));
+    $subject = $this->subjectFromFilePath($path, (string) ($file['type_label'] ?? 'Configuration'));
     if ($status === 'new_in_db') {
-      return ts('%1 was added in active CiviCRM and is not in YAML yet. Export will write it to %2; import will remove it when deletion is supported.', [1 => $typeLabel, 2 => $path]);
+      return ts('%1 was added in active CiviCRM and is not in YAML yet. Export will add this YAML file.', [1 => $subject]);
     }
     if ($status === 'missing_in_db') {
-      return ts('%1 exists in YAML but is missing from active CiviCRM. Import will recreate it from %2; export will delete the stale YAML if the CiviCRM record should stay removed.', [1 => $typeLabel, 2 => $path]);
+      return ts('%1 exists in YAML but is missing from active CiviCRM. Import will recreate it when supported; export can remove the stale YAML.', [1 => $subject]);
     }
-    return ts('%1 has %2 changed field(s). Review the field descriptions below, then export to update YAML or import/revert to apply YAML back to CiviCRM.', [1 => $typeLabel, 2 => $count]);
+    $details = array_values(array_filter((array) ($file['detail_sentences'] ?? [])));
+    if ($details) {
+      $first = (string) $details[0];
+      $extra = count($details) > 1 ? ' ' . ts('Plus %1 more related change(s).', [1 => count($details) - 1]) : '';
+      return $first . $extra;
+    }
+    return ts('%1 has changes between YAML and active CiviCRM.', [1 => $subject]);
   }
 
-  private function describeFieldChange(string $label, string $changeType, string $yamlValue, string $civiValue): string {
+  private function describeFieldChange(array $file, array $change, string $label, string $changeType, string $yamlValue, string $civiValue): string {
     $yaml = $this->shortInlineValue($yamlValue);
     $civi = $this->shortInlineValue($civiValue);
+    $subject = $this->subjectForChange($file, $change, $label);
+    $field = $this->fieldNameForChange((string) ($change['path'] ?? ''), $label);
     if ($changeType === 'added') {
-      return ts('%1 is present in active CiviCRM as "%2" but is missing from YAML.', [1 => $label, 2 => $civi]);
+      return ts('%1 %2 was added in active CiviCRM with value "%3".', [1 => $subject, 2 => $field, 3 => $civi]);
     }
     if ($changeType === 'removed') {
-      return ts('%1 is present in YAML as "%2" but is missing from active CiviCRM.', [1 => $label, 2 => $yaml]);
+      return ts('%1 %2 exists in YAML with value "%3" but is missing from active CiviCRM.', [1 => $subject, 2 => $field, 3 => $yaml]);
     }
-    return ts('%1 changed: YAML has "%2" and active CiviCRM has "%3".', [1 => $label, 2 => $yaml, 3 => $civi]);
+    return ts('%1 %2 changed from "%3" in YAML to "%4" in active CiviCRM.', [1 => $subject, 2 => $field, 3 => $yaml, 4 => $civi]);
+  }
+
+  private function subjectForChange(array $file, array $change, string $fallbackLabel): string {
+    $path = (string) ($file['path'] ?? $file['file'] ?? '');
+    $changePath = (string) ($change['path'] ?? '');
+    $typeLabel = (string) ($file['type_label'] ?? $file['type'] ?? 'Configuration');
+
+    if (preg_match('#^contact-types/#', $path) && preg_match('/items\[([^\]]+)\]/', $changePath, $m)) {
+      return ts('Contact Type "%1"', [1 => $this->humanizeMachineName($m[1])]);
+    }
+    if (preg_match('#^relationship-types/#', $path) && preg_match('/items\[([^\]]+)\]/', $changePath, $m)) {
+      return ts('Relationship Type "%1"', [1 => $this->humanizeMachineName($m[1])]);
+    }
+    if (preg_match('#^location-types/#', $path) && preg_match('/items\[([^\]]+)\]/', $changePath, $m)) {
+      return ts('Location Type "%1"', [1 => $this->humanizeMachineName($m[1])]);
+    }
+    if (preg_match('#^option-groups/([^/]+)\.yml$#', $path, $fileMatch) && preg_match('/values\[([^\]]+)\]/', $changePath, $m)) {
+      return ts('%1 "%2"', [1 => $this->humanizeMachineName($fileMatch[1]), 2 => $this->humanizeMachineName($m[1])]);
+    }
+    if (preg_match('#^custom-data/groups/([^/]+)\.yml$#', $path, $m)) {
+      return ts('Custom data group "%1"', [1 => $this->humanizeMachineName($m[1])]);
+    }
+    if (preg_match('#^settings/#', $path) && preg_match('/items\.([^.]+)$/', $changePath, $m)) {
+      return ts('CiviCRM setting "%1"', [1 => $this->humanizeMachineName($m[1])]);
+    }
+    if (preg_match('#^extensions/([^/]+)\.yml$#', $path, $m)) {
+      if (preg_match('/^settings\.([^.]+)(?:\.(.+))?$/', $changePath, $setting)) {
+        $name = $this->humanizeMachineName($setting[1]);
+        if (!empty($setting[2])) {
+          $name .= ' › ' . $this->humanizeMachineName(str_replace('.', ' › ', $setting[2]));
+        }
+        return ts('Extension setting "%1" for %2', [1 => $name, 2 => $m[1]]);
+      }
+      if (preg_match('/^config_index\[([^\]]+)\]/', $changePath, $idx)) {
+        return ts('Extension config index "%1" for %2', [1 => $idx[1], 2 => $m[1]]);
+      }
+      return ts('Extension "%1"', [1 => $m[1]]);
+    }
+    if (preg_match('#^extensions/([^/]+)/(api[34])/([^/]+)/([^/]+)\.yml$#', $path, $m)) {
+      return ts('%1 "%2" from %3', [1 => $this->humanizeMachineName($m[3]), 2 => $this->humanizeMachineName($m[4]), 3 => $m[1]]);
+    }
+    if (preg_match('/items\[([^\]]+)\]/', $changePath, $m)) {
+      return ts('%1 "%2"', [1 => $typeLabel, 2 => $this->humanizeMachineName($m[1])]);
+    }
+    if (preg_match('/values\[([^\]]+)\]/', $changePath, $m)) {
+      return ts('%1 "%2"', [1 => $typeLabel, 2 => $this->humanizeMachineName($m[1])]);
+    }
+    return $this->subjectFromFilePath($path, $typeLabel ?: $fallbackLabel);
+  }
+
+  private function subjectFromFilePath(string $path, string $fallback): string {
+    if (preg_match('#^extensions/([^/]+)/(api[34])/([^/]+)/([^/]+)\.yml$#', $path, $m)) {
+      return ts('%1 "%2" from %3', [1 => $this->humanizeMachineName($m[3]), 2 => $this->humanizeMachineName($m[4]), 3 => $m[1]]);
+    }
+    if (preg_match('#^extensions/([^/]+)\.yml$#', $path, $m)) {
+      return ts('Extension "%1"', [1 => $m[1]]);
+    }
+    if (preg_match('#^option-groups/([^/]+)\.yml$#', $path, $m)) {
+      return ts('Option group "%1"', [1 => $this->humanizeMachineName($m[1])]);
+    }
+    if (preg_match('#^custom-data/groups/([^/]+)\.yml$#', $path, $m)) {
+      return ts('Custom data group "%1"', [1 => $this->humanizeMachineName($m[1])]);
+    }
+    return $fallback ?: ts('Configuration file');
+  }
+
+  private function fieldNameForChange(string $path, string $label): string {
+    $field = $path;
+    $field = preg_replace('/^.*\]\./', '', $field);
+    $field = preg_replace('/^item\./', '', $field);
+    $field = preg_replace('/^group\./', '', $field);
+    $field = preg_replace('/^settings\.[^.]+\.?/', '', $field);
+    if ($field === '' || $field === $path) {
+      $field = $label;
+    }
+    return strtolower($this->humanizeMachineName($field));
+  }
+
+  private function humanizeMachineName(string $name): string {
+    $name = trim($name);
+    if ($name === '') {
+      return $name;
+    }
+    $name = str_replace(['__', '_', '-', '.', ' › '], [' ', ' ', ' ', ' ', ' › '], $name);
+    $name = preg_replace('/(?<!^)([A-Z])/', ' $1', (string) $name);
+    $name = preg_replace('/\s+/', ' ', (string) $name);
+    $name = trim((string) $name);
+    if ($name === strtoupper($name)) {
+      return $name;
+    }
+    return ucwords($name);
   }
 
   private function shortInlineValue(string $value): string {

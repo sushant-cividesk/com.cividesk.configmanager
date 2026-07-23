@@ -39,6 +39,27 @@
       }
     });
 
+    document.addEventListener('change', function(ev) {
+      var target = ev.target;
+      if (!target || !target.closest || !target.closest('.crm-configmanager-block')) { return; }
+      var form = target.closest('form');
+      if (!form) { return; }
+      if (target.matches('[data-civicfg-ignore-fields] input[type="checkbox"]')) {
+        var fieldsRadio = form.querySelector('input[data-civicfg-ignore-fields-radio]');
+        if (target.checked && fieldsRadio) {
+          fieldsRadio.checked = true;
+        }
+      }
+      if (target.matches('input[data-civicfg-ignore-file]') && target.checked) {
+        form.querySelectorAll('[data-civicfg-ignore-fields] input[type="checkbox"]').forEach(function(box) { box.checked = false; });
+      }
+      if (target.matches('input[data-civicfg-ignore-fields-radio]') && target.checked) {
+        var first = form.querySelector('[data-civicfg-ignore-fields] input[type="checkbox"]');
+        if (first && !form.querySelector('[data-civicfg-ignore-fields] input[type="checkbox"]:checked')) {
+          first.focus();
+        }
+      }
+    });
 
     document.querySelectorAll('.crm-configmanager-block form input[data-civicfg-ignore-file]').forEach(function(fileRadio) {
       fileRadio.addEventListener('change', function() {

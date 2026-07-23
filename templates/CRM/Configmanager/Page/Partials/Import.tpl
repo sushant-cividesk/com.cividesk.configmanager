@@ -21,15 +21,23 @@
 
           <div class="civicfg-change-list">
             {foreach from=$importPlan item=item}
-              <div class="civicfg-change-card">
-                <h4><code class="civicfg-file-code">{$item.path|escape}</code></h4>
-                <div class="civicfg-change-meta">
-                  <span class="civicfg-badge {if !$item.importable}warn{elseif $item.status eq 'new_in_db'}bad{else}good{/if}">{if $item.importable}{$item.action|escape}{else}{ts}Not Ready{/ts}{/if}</span>
-                  <span>{$item.change_count|escape} {if $item.status eq 'changed'}{ts}Changed Field(s){/ts}{elseif $item.status eq 'new_in_db'}{ts}Added Field(s){/ts}{else}{ts}YAML Field(s){/ts}{/if}</span>
-                  <span class="civicfg-muted">{$item.type_label|escape}</span>
+              <div class="civicfg-file-card civicfg-state-{$item.status|escape}">
+                <div class="civicfg-file-main">
+                  <div class="civicfg-file-title"><code class="civicfg-file-code">{$item.path|escape}</code></div>
+                  <div class="civicfg-file-meta">
+                    <span class="civicfg-badge {if !$item.importable}warn{elseif $item.status eq 'new_in_db'}bad{else}good{/if}">{if $item.importable}{$item.action|escape}{else}{ts}Not Ready{/ts}{/if}</span>
+                    <span>{$item.change_count|escape} {if $item.status eq 'changed'}{ts}changed field(s){/ts}{elseif $item.status eq 'new_in_db'}{ts}field(s) to remove{/ts}{else}{ts}field(s) to create{/ts}{/if}</span>
+                    <span class="civicfg-muted">{$item.type_label|escape}</span>
+                  </div>
+                  <div class="civicfg-file-summary">{if $item.summary_sentence}{$item.summary_sentence|escape}{elseif $item.note}{$item.note|escape}{/if}</div>
+                  {if $item.detail_sentences|@count gt 1}
+                    <ul class="civicfg-change-sentences">
+                      {foreach from=$item.detail_sentences item=sentence name=importsentences}
+                        {if $smarty.foreach.importsentences.index lt 3}<li>{$sentence|escape}</li>{/if}
+                      {/foreach}
+                    </ul>
+                  {/if}
                 </div>
-                <div class="civicfg-file-summary">{$item.path|escape}: {$item.status_label|escape}. {$item.note|escape}</div>
-                {if $item.note}<div class="messages warning no-popup">{$item.note|escape}</div>{/if}
                 {if $item.rows}
                   <div class="civicfg-import-diff-list">
                     {foreach from=$item.rows item=row name=importrowloop}

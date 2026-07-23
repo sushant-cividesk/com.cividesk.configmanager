@@ -23,13 +23,15 @@
         {if $diffFiles|@count gt 0}
           <div class="civicfg-change-list">
             {foreach from=$diffFiles item=file}
-              <div class="civicfg-change-card">
-                <h4><code class="civicfg-file-code">{$file.path|escape}</code></h4>
-                <div class="civicfg-change-meta">
-                  <span class="civicfg-badge warn">{$file.status_label|escape}</span>
-                  <span class="civicfg-muted">{$file.type_label|escape}</span>
+              <div class="civicfg-file-card civicfg-state-{$file.status|escape}">
+                <div class="civicfg-file-main">
+                  <div class="civicfg-file-title"><code class="civicfg-file-code">{$file.path|escape}</code></div>
+                  <div class="civicfg-file-meta">
+                    <span class="civicfg-badge civicfg-badge-{$file.status|escape}">{$file.status_label|escape}</span>
+                    <span class="civicfg-muted">{$file.type_label|escape}</span>
+                  </div>
+                  <div class="civicfg-file-summary">{$file.summary_sentence|escape}</div>
                 </div>
-                <div class="civicfg-file-summary">{$file.summary_sentence|escape}</div>
               </div>
             {/foreach}
           </div>
